@@ -1,0 +1,12 @@
+discovery:
+  portOptions: No, Yes
+  supportedTypes: IP, Range, Subnet
+server:
+  port: ${PORT:8090}
+spring:
+  datasource:
+    auto-commit: false
+    driver-class-name: org.postgresql.Driver
+    password: ${JDBC_PASSWORD}
+    url: ${JDBC_URL}
+    username: ${JDBC_USERNAME}

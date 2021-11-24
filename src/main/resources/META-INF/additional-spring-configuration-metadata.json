@@ -1,0 +1,17 @@
+{"properties": [
+  {
+    "name": "discovery.portOptions",
+    "type": "java.lang.String",
+    "description": "List of options for supported port"
+  },
+  {
+    "name": "discovery.supportedTypes",
+    "type": "java.lang.String",
+    "description": "List of supported types of discovery"
+  },
+  {
+    "name": "spring.datasource.auto-commit",
+    "type": "java.lang.String",
+    "description": "SpringJPA Autocommit property in the application.yml file"
+  }
+]}
