@@ -36,7 +36,7 @@ public class ConnectionServiceImpl implements ConnectionService {
             X509Certificate[] certs = (X509Certificate[]) conn.getServerCertificates();
             String cipher = conn.getCipherSuite().toString();
             conn.disconnect();
-            logger.debug("COnnection to {} terminated", url);
+            logger.debug("Connection to {} terminated", url);
             return new ConnectionResponse(cipher, certs);
         } catch (ConnectException e) {
             throw new SocketTimeoutException("Unable to connect to URL");

@@ -120,9 +120,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 	}
 	
 	private void createCertificateEntry(X509Certificate certificate, Long discoveryId, String discoverySource) {
+		Map<String, Object> meta = new HashMap<>();
+		meta.put("discoverySource",discoverySource);
 		Certificate cert = new Certificate();
 		cert.setDiscoveryId(discoveryId);
-		cert.setDiscoverySource(discoverySource);
+		cert.setMeta(MetaDefinitions.serialize(meta));
 		cert.setBase64Content(X509ObjectToString.toPem(certificate));
 		cert.setUuid(UUID.randomUUID().toString());
 		certificateRepository.save(cert);

@@ -17,8 +17,7 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 @Service
 public class AttributeServiceImpl implements AttributeService{
 	private static final Logger logger = LoggerFactory.getLogger(AttributesController.class);
-	
-	public static final String ATTRIBUTE_DISCOVERY_TYPE = "discoveryType";
+
 	public static final String ATTRIBUTE_DISCOVERY_ip = "ip";
 	public static final String ATTRIBUTE_PORTS = "ports";
 	public static final String ATTRIBUTE_ALL_PORTS = "allPorts";
@@ -32,18 +31,6 @@ public class AttributeServiceImpl implements AttributeService{
 	@Override
 	public List<AttributeDefinition> getAttributes(String kind) {
 		List<AttributeDefinition> attributes = new ArrayList<>();
-
-        AttributeDefinition discoveryType = new AttributeDefinition();
-        discoveryType.setId("72f1ce7d-3e63-458c-8954-2b950240ca33");
-        discoveryType.setName("discoveryType");
-        discoveryType.setLabel("Discovery Type");
-        discoveryType.setType(BaseAttributeDefinitionTypes.STRING);
-        discoveryType.setRequired(false);
-        discoveryType.setReadOnly(true);
-        discoveryType.setVisible(true);
-        discoveryType.setValue("IP/Hostname");
-        discoveryType.setDescription("Discovery Type");
-        attributes.add(discoveryType);
 
         AttributeDefinition ip = new AttributeDefinition();
         ip.setId("1b6c48ad-c1c7-4c82-91ef-3b61bc9f52ac");
