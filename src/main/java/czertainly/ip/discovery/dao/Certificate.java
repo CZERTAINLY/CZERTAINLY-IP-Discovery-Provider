@@ -38,6 +38,9 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Disc
 	
 	@Column(name="discovery_source")
 	private String discoverySource;
+
+	@Column(name="uuid")
+	private String uuid;
 	
 	@Column(name="discovery_id")
 	private Long discoveryId;
@@ -48,7 +51,7 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Disc
 	@Override
 	public DiscoveryProviderCertificateDataDto mapToDto() {
 		DiscoveryProviderCertificateDataDto dto = new DiscoveryProviderCertificateDataDto();
-		dto.setId(id);
+		dto.setUuid(uuid);
 		dto.setBase64Content(base64Content);
 		dto.setDiscoverySource(discoverySource);
 		dto.setMeta(MetaDefinitions.deserialize(meta));
@@ -59,6 +62,7 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Disc
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("id", id)
+				.append("uuid", uuid)
                 .toString();
     }
 
@@ -68,6 +72,14 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Disc
 
 	public void setId(Long id) {
 		this.id = id;
+	}
+
+	public String getUuid() {
+		return uuid;
+	}
+
+	public void setUuid(String uuid) {
+		this.uuid = uuid;
 	}
 
 	public String getBase64Content() {

@@ -1,10 +1,7 @@
 package czertainly.ip.discovery.service.impl;
 
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import javax.transaction.Transactional;
@@ -48,7 +45,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 	@Override
 	public DiscoveryProviderDto getProviderDtoData(DiscoveryProviderDto request, DiscoveryHistory history) {
 		DiscoveryProviderDto dto = new DiscoveryProviderDto();
-		dto.setId(history.getId());
+		dto.setUuid(history.getUuid());
 		dto.setName(history.getName());
 		dto.setStatus(history.getStatus());
 		dto.setMeta(MetaDefinitions.deserialize(history.getMeta()));
@@ -127,7 +124,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		cert.setDiscoveryId(discoveryId);
 		cert.setDiscoverySource(discoverySource);
 		cert.setBase64Content(X509ObjectToString.toPem(certificate));
-		
+		cert.setUuid(UUID.randomUUID().toString());
 		certificateRepository.save(cert);
 	}
 	

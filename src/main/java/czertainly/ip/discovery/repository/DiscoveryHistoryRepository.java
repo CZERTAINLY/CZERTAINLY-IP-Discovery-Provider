@@ -13,4 +13,5 @@ import czertainly.ip.discovery.dao.DiscoveryHistory;
 @Transactional
 public interface DiscoveryHistoryRepository extends JpaRepository<DiscoveryHistory, Long>{
 	Optional<DiscoveryHistory> findById(Long Id);
+	Optional<DiscoveryHistory> findByUuid(String uuid);
 }
