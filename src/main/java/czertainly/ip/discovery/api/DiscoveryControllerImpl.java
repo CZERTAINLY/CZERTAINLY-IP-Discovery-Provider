@@ -35,11 +35,11 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	public DiscoveryProviderDto discoverCertificate(@RequestBody DiscoveryProviderDto request) throws IOException, NotFoundException {
 		logger.info("Initiating certificate discovery for the given inputs");
 		DiscoveryHistory history;
-		if(request.getId() == null || request.getId() == 0) {
+		if(request.getUuid() == null || request.getUuid().isEmpty()) {
 			history = discoveryHistoryService.addHistory(request);
 			discoveryService.discoverCertificate(request, history);
 		}else {
-			history = discoveryHistoryService.getHistoryById(request.getId());
+			history = discoveryHistoryService.getHistoryByUuid(request.getUuid());
 		}
 		
 		return discoveryService.getProviderDtoData(request, history);

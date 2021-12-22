@@ -34,6 +34,9 @@ public class DiscoveryHistory extends Audited implements Serializable {
 	@Column(name = "name")
 	private String name;
 
+	@Column(name = "uuid")
+	private String uuid;
+
 	@Column(name = "status")
 	@Enumerated(EnumType.STRING)
 	private DiscoveryStatus status;
@@ -44,7 +47,8 @@ public class DiscoveryHistory extends Audited implements Serializable {
 	@Override
 	public String toString() {
 		return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("id", id).append("name", name)
-				.append("status", status).toString();
+				.append("status", status)
+				.append("uuid", uuid).toString();
 	}
 
 	public Long getId() {
@@ -53,6 +57,14 @@ public class DiscoveryHistory extends Audited implements Serializable {
 
 	public void setId(Long id) {
 		this.id = id;
+	}
+
+	public String getUuid() {
+		return uuid;
+	}
+
+	public void setUuid(String uuid) {
+		this.uuid = uuid;
 	}
 
 	public String getName() {
