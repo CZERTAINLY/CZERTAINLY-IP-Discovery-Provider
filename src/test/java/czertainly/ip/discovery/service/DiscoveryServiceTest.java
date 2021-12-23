@@ -36,10 +36,10 @@ public class DiscoveryServiceTest {
         discoveryProviderDtoTest.setName("test123");
         discoveryProviderDtoTest.setConnectorUuid("123456");
 
-        AttributeDefinition discoveryType = new AttributeDefinition();
-        discoveryType.setId("72f1ce7d-3e63-458c-8954-2b950240ca33");
-        discoveryType.setName("discoveryType");
-        discoveryType.setValue("IP/Hostname");
+        AttributeDefinition kind = new AttributeDefinition();
+        kind.setId("72f1ce7d-3e63-458c-8954-2b950240ca33");
+        kind.setName("kind");
+        kind.setValue("IP/Hostname");
 
         AttributeDefinition ip = new AttributeDefinition();
         ip.setId("1b6c48ad-c1c7-4c82-91ef-3b61bc9f52ac");
@@ -55,7 +55,7 @@ public class DiscoveryServiceTest {
         allPorts.setId("3c70d728-e8c3-40f9-b9b2-5d7256f89ef0");
         allPorts.setName("allPorts");
         allPorts.setValue("No");
-        discoveryProviderDtoTest.setAttributes(Arrays.asList(discoveryType, ip, port, allPorts));
+        discoveryProviderDtoTest.setAttributes(Arrays.asList(kind, ip, port, allPorts));
 
         discoveryHistory = new DiscoveryHistory();
         discoveryHistory.setName("test");

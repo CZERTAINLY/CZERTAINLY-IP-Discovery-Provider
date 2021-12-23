@@ -22,9 +22,6 @@ public class AttributeServiceImpl implements AttributeService{
 	public static final String ATTRIBUTE_PORTS = "ports";
 	public static final String ATTRIBUTE_ALL_PORTS = "allPorts";
 	
-	@Value("${discovery.supportedTypes}")
-	private ArrayList<String> supportedDiscoveryTypes;
-	
 	@Value("${discovery.portOptions}")
 	private ArrayList<String> supportedPortOptions;
     
