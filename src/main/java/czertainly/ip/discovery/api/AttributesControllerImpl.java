@@ -28,7 +28,7 @@ public class AttributesControllerImpl implements AttributesController {
 
     @Override
     public List<AttributeDefinition> listAttributeDefinitions(@PathVariable String kind){
-    	logger.info("Request to get the attribute for discovery for type {}", kind);
+    	logger.info("Request to get the attribute for discovery for kind {}", kind);
         return attributeService.getAttributes(kind);
     }
 
