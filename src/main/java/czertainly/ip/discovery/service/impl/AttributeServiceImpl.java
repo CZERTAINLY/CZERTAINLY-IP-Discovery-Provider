@@ -30,7 +30,7 @@ public class AttributeServiceImpl implements AttributeService{
 		List<AttributeDefinition> attributes = new ArrayList<>();
 
         AttributeDefinition ip = new AttributeDefinition();
-        ip.setId("1b6c48ad-c1c7-4c82-91ef-3b61bc9f52ac");
+        ip.setUuid("1b6c48ad-c1c7-4c82-91ef-3b61bc9f52ac");
         ip.setName("ip");
         ip.setLabel("IP/Hostname");
         ip.setType(BaseAttributeDefinitionTypes.STRING);
@@ -41,7 +41,7 @@ public class AttributeServiceImpl implements AttributeService{
         attributes.add(ip);
         
         AttributeDefinition port = new AttributeDefinition();
-        port.setId("a9091e0d-f9b9-4514-b275-1dd52aa870ec");
+        port.setUuid("a9091e0d-f9b9-4514-b275-1dd52aa870ec");
         port.setName("port");
         port.setLabel("Port");
         port.setType(BaseAttributeDefinitionTypes.STRING);
@@ -53,7 +53,7 @@ public class AttributeServiceImpl implements AttributeService{
         attributes.add(port);
         
         AttributeDefinition allPorts = new AttributeDefinition();
-        allPorts.setId("3c70d728-e8c3-40f9-b9b2-5d7256f89ef0");
+        allPorts.setUuid("3c70d728-e8c3-40f9-b9b2-5d7256f89ef0");
         allPorts.setName("allPorts");
         allPorts.setLabel("All Ports?");
         allPorts.setType(BaseAttributeDefinitionTypes.LIST);
