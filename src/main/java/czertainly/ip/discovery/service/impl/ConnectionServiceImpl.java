@@ -1,20 +1,18 @@
 package czertainly.ip.discovery.service.impl;
 
+import czertainly.ip.discovery.dto.ConnectionResponse;
+import czertainly.ip.discovery.service.ConnectionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.transaction.Transactional;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.security.cert.X509Certificate;
-
-import javax.net.ssl.HttpsURLConnection;
-import javax.transaction.Transactional;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
-import czertainly.ip.discovery.dto.ConnectionResponse;
-import czertainly.ip.discovery.service.ConnectionService;
 
 @Service
 @Transactional
