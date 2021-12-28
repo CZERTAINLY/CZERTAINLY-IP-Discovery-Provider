@@ -1,7 +1,7 @@
 package czertainly.ip.discovery.service;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.discovery.DiscoveryProviderDto;
+import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import czertainly.ip.discovery.dao.DiscoveryHistory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,13 +19,12 @@ public class DiscoveryHistoryServiceTest {
     @Autowired
     private DiscoveryHistoryService discoveryHistoryService;
 
-    private DiscoveryProviderDto discoveryProviderDto;
+    private DiscoveryRequestDto discoveryProviderDto;
 
     @BeforeEach
     public void setUp() {
-        discoveryProviderDto = new DiscoveryProviderDto();
+        discoveryProviderDto = new DiscoveryRequestDto();
         discoveryProviderDto.setName("test");
-        discoveryProviderDto.setConnectorUuid("123456");
     }
 
     @Test

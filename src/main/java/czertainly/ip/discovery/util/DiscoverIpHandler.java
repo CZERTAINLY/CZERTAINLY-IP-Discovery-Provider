@@ -1,15 +1,14 @@
 package czertainly.ip.discovery.util;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import org.apache.commons.net.util.SubnetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.discovery.DiscoveryProviderDto;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class DiscoverIpHandler {
 	private static final Logger logger = LoggerFactory.getLogger(DiscoverIpHandler.class);
@@ -18,7 +17,7 @@ public class DiscoverIpHandler {
 		throw new IllegalStateException("Utility Class");
 	}
 	
-	public static List<String> getAllIp(DiscoveryProviderDto request){
+	public static List<String> getAllIp(DiscoveryRequestDto request){
 		logger.debug("Discovering the IP");
 		String kind = getAttributeValue(request.getAttributes(), "kind").toString();
 		String ip = getAttributeValue(request.getAttributes(), "ip").toString();
@@ -29,8 +28,8 @@ public class DiscoverIpHandler {
 		return urls;
 	}
 	
-	private static Object getAttributeValue(List<AttributeDefinition> attributes, String attributeName) {
-		for(AttributeDefinition attribute: attributes) {
+	private static Object getAttributeValue(List<RequestAttributeDto> attributes, String attributeName) {
+		for(RequestAttributeDto attribute: attributes) {
 			if (attribute.getName().equals(attributeName)) {
 				return attribute.getValue();
 			}

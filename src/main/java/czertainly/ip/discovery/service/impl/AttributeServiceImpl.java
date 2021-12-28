@@ -1,18 +1,18 @@
 package czertainly.ip.discovery.service.impl;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import com.czertainly.api.interfaces.connector.AttributesController;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.BaseAttributeDefinitionTypes;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.core.util.AttributeDefinitionUtils;
+import czertainly.ip.discovery.service.AttributeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.czertainly.api.interfaces.AttributesController;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.BaseAttributeDefinitionTypes;
-import czertainly.ip.discovery.service.AttributeService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class AttributeServiceImpl implements AttributeService{
@@ -68,7 +68,7 @@ public class AttributeServiceImpl implements AttributeService{
 	}
 
 	@Override
-	public boolean validateAttributes(String kind, List<AttributeDefinition> attributes) {
+	public boolean validateAttributes(String kind, List<RequestAttributeDto> attributes) {
 		AttributeDefinitionUtils.validateAttributes(getAttributes(kind), attributes);
         return true;
 	}
