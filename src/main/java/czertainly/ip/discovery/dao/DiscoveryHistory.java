@@ -1,20 +1,11 @@
 package czertainly.ip.discovery.dao;
 
-import java.io.Serializable;
-
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.SequenceGenerator;
-import javax.persistence.Table;
-
+import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-import com.czertainly.api.model.discovery.DiscoveryStatus;
+
+import javax.persistence.*;
+import java.io.Serializable;
 
 @Entity
 @Table(name = "ip_discovery_history")
@@ -34,6 +25,9 @@ public class DiscoveryHistory extends Audited implements Serializable {
 	@Column(name = "name")
 	private String name;
 
+	@Column(name = "uuid")
+	private String uuid;
+
 	@Column(name = "status")
 	@Enumerated(EnumType.STRING)
 	private DiscoveryStatus status;
@@ -44,7 +38,8 @@ public class DiscoveryHistory extends Audited implements Serializable {
 	@Override
 	public String toString() {
 		return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("id", id).append("name", name)
-				.append("status", status).toString();
+				.append("status", status)
+				.append("uuid", uuid).toString();
 	}
 
 	public Long getId() {
@@ -53,6 +48,14 @@ public class DiscoveryHistory extends Audited implements Serializable {
 
 	public void setId(Long id) {
 		this.id = id;
+	}
+
+	public String getUuid() {
+		return uuid;
+	}
+
+	public void setUuid(String uuid) {
+		this.uuid = uuid;
 	}
 
 	public String getName() {

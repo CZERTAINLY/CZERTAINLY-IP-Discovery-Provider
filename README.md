@@ -11,7 +11,7 @@ Network Discovery Provider can discover certificates from:
 sites that are not exposed to the outside worked
 - Internet - If the provider has access to the internet, It can discover certificates from any publicly accessible URLs
 
-The connector provides various options during the certificate, including:
+The `Connector` provides various options during the certificate, including:
 - Single Host Scan
 - Multiple Host Scan
 - Single / Multi Subnet Scan
@@ -19,12 +19,24 @@ The connector provides various options during the certificate, including:
 
 ## Short Process Description
 
-Connector discovers the certificates from the host without increasing the network traffic and congestion. When the connector receives the request to scan the host, it tries to connect to the ssl port (which can be left default to 443 or provided with custom value), captures the certificates and parses them. Once the certificates are successfully gathered, it is then sent back to the core for storage and parsing. Core takes care of the rest.
+`Connector` discovers the certificates from the host without increasing the network traffic and congestion. When the connector receives the request to scan the host, it tries to connect to the ssl port (which can be left default to 443 or provided with custom value), captures the certificates and parses them. Once the certificates are successfully gathered, it is then sent back to the `Core` for storage and parsing. `Core` takes care of the rest.
 
-To know more about core, refer to [CZERTAINLY Core](https://github.com/3KeyCompany/CZERTAINLY-Core).
+To know more about `Core`, refer to [CZERTAINLY Core](https://github.com/3KeyCompany/CZERTAINLY-Core).
 
 ## Interfaces
 
-Network discovery provider implements the Discovery Provider Interface from the CZERTAINLY Interfaces. To learn more about the interfaces and end points, refer to the [CZERTAINLY Interfaces](https://github.com/3KeyCompany/CZERTAINLY-Interfaces).
+Network discovery provider implements the `Discovery Provider` Interface from the CZERTAINLY Interfaces. To learn more about the interfaces and end points, refer to the [CZERTAINLY Interfaces](https://github.com/3KeyCompany/CZERTAINLY-Interfaces).
 
-For more information regarding the discovery, please refer to the CZERTAINLY documentation.
+For more information regarding the `Discovery`, please refer to the [CZERTAINLY documentation](https://docs.czertainly.com).
+
+## Docker container
+
+Network Discovery Provider is provided as a Docker container. Use the `3keycompany/czertainly-ip-discovery-provider:tagname` to pull the required image from the repository. It can be configured using the following environment variables:
+
+| Variable | Description | Required | Default value |
+| --- | --- | --- | --- |
+| `JDBC_URL` | JDBC URL for database access | Yes | N/A |
+| `JDBC_USERNAME` | Username to access the database | Yes | N/A |
+| `JDBC_PASSWORD` | Password to access the database | Yes | N/A |
+| `DB_SCHEMA` | Database schema to use | No | network |
+| `PORT` | Port where the service is exposed | No | 8090 |

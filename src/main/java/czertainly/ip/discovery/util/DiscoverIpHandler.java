@@ -1,15 +1,14 @@
 package czertainly.ip.discovery.util;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import org.apache.commons.net.util.SubnetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.discovery.DiscoveryProviderDto;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class DiscoverIpHandler {
 	private static final Logger logger = LoggerFactory.getLogger(DiscoverIpHandler.class);
@@ -18,19 +17,19 @@ public class DiscoverIpHandler {
 		throw new IllegalStateException("Utility Class");
 	}
 	
-	public static List<String> getAllIp(DiscoveryProviderDto request){
+	public static List<String> getAllIp(DiscoveryRequestDto request){
 		logger.debug("Discovering the IP");
-		String discoveryType = getAttributeValue(request.getAttributes(), "discoveryType").toString();
+		String kind = getAttributeValue(request.getAttributes(), "kind").toString();
 		String ip = getAttributeValue(request.getAttributes(), "ip").toString();
 		String port = getAttributeValue(request.getAttributes(), "port").toString();
 		Boolean allPort = getAttributeValue(request.getAttributes(), "allPorts") == "Yes";
 		
-		List<String> urls = getUrl(ip, discoveryType, port, allPort);
+		List<String> urls = getUrl(ip, kind, port, allPort);
 		return urls;
 	}
 	
-	private static Object getAttributeValue(List<AttributeDefinition> attributes, String attributeName) {
-		for(AttributeDefinition attribute: attributes) {
+	private static Object getAttributeValue(List<RequestAttributeDto> attributes, String attributeName) {
+		for(RequestAttributeDto attribute: attributes) {
 			if (attribute.getName().equals(attributeName)) {
 				return attribute.getValue();
 			}
@@ -38,7 +37,7 @@ public class DiscoverIpHandler {
 		return "";
 	}
 	
-	private static List<String> getIps(String ip, String discoveryType) {
+	private static List<String> getIps(String ip, String kind) {
 		List<String> allIP = new ArrayList<>();
 			for(String indIp: ip.split(",")) {
 				if(!indIp.contains("/")) {
@@ -52,8 +51,8 @@ public class DiscoverIpHandler {
 		return allIP;
 	}
 	
-	private static List<String> getUrl(String ips, String discoveryType, String ports, Boolean allPorts) {
-		List<String> allIP = getIps(ips, discoveryType);
+	private static List<String> getUrl(String ips, String kind, String ports, Boolean allPorts) {
+		List<String> allIP = getIps(ips, kind);
 		List<String> urls = new ArrayList<>();
 		String[] port;
 		if(!allPorts) {

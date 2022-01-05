@@ -10,3 +10,10 @@ spring:
     password: ${JDBC_PASSWORD}
     url: ${JDBC_URL}
     username: ${JDBC_USERNAME}
+  flyway:
+    out-of-order: true
+    table: "network_schema_history"
+    schemas: ${DB_SCHEMA:network}
+  jpa:
+    properties:
+      hibernate.default_schema: ${DB_SCHEMA:network}
