@@ -1,0 +1,10 @@
+package com.czertainly.discovery.ip.service;
+
+import com.czertainly.discovery.ip.dto.ConnectionResponse;
+
+import java.io.IOException;
+
+public interface ConnectionService {
+	public ConnectionResponse getCertificates(String url) throws IOException;
+}
+
