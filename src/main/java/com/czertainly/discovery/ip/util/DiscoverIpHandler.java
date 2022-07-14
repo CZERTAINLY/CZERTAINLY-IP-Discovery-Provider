@@ -24,7 +24,7 @@ public class DiscoverIpHandler {
 
 		String kind = AttributeDefinitionUtils.getAttributeContentValue("kind", request.getAttributes(), BaseAttributeContent.class);
 		String ip = AttributeDefinitionUtils.getAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_DISCOVERY_IP, request.getAttributes(), BaseAttributeContent.class);
-		String ports = AttributeDefinitionUtils.getAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_PORT, request.getAttributes(), BaseAttributeContent.class);
+		String ports = AttributeDefinitionUtils.getAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_PORT, request.getAttributes(), BaseAttributeContent.class).toString();
 		Boolean allPort = AttributeDefinitionUtils.getAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_ALL_PORTS, request.getAttributes(), BaseAttributeContent.class);
 
 		if (allPort == null) {
