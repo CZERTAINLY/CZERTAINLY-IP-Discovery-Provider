@@ -1,5 +1,6 @@
 package com.czertainly.discovery.ip.service.impl;
 
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
@@ -69,7 +70,15 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		}
 		return dto;
 	}
-	
+
+	@Override
+	public void deleteDiscovery(String uuid) throws NotFoundException {
+		DiscoveryHistory discoveryHistory = discoveryHistoryService.getHistoryByUuid(uuid);
+		List<Certificate> certificates = certificateRepository.findByDiscoveryId(discoveryHistory.getId());
+		certificateRepository.deleteAll(certificates);
+		discoveryHistoryService.deleteHistory(discoveryHistory);
+	}
+
 	@Override
 	@Async
 	public void discoverCertificate(DiscoveryRequestDto request, DiscoveryHistory history) {
