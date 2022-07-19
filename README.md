@@ -31,12 +31,12 @@ For more information regarding the `Discovery`, please refer to the [CZERTAINLY 
 
 ## Docker container
 
-Network Discovery Provider is provided as a Docker container. Use the `3keycompany/czertainly-ip-discovery-provider:tagname` to pull the required image from the repository. It can be configured using the following environment variables:
+Network Discovery Provider is provided as a Docker container. Use the `docker pull harbor.3key.company/czertainly/czertainly-ip-discovery-provider:tagname` to pull the required image from the repository. It can be configured using the following environment variables:
 
-| Variable | Description | Required | Default value |
-| --- | --- | --- | --- |
-| `JDBC_URL` | JDBC URL for database access | Yes | N/A |
-| `JDBC_USERNAME` | Username to access the database | Yes | N/A |
-| `JDBC_PASSWORD` | Password to access the database | Yes | N/A |
-| `DB_SCHEMA` | Database schema to use | No | network |
-| `PORT` | Port where the service is exposed | No | 8090 |
+| Variable        | Description                       | Required | Default value |
+|-----------------|-----------------------------------|----------|---------------|
+| `JDBC_URL`      | JDBC URL for database access      | Yes      | N/A           |
+| `JDBC_USERNAME` | Username to access the database   | Yes      | N/A           |
+| `JDBC_PASSWORD` | Password to access the database   | Yes      | N/A           |
+| `DB_SCHEMA`     | Database schema to use            | No       | network       |
+| `PORT`          | Port where the service is exposed | No       | 8090          |
