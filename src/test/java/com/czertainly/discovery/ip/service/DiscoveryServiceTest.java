@@ -1,10 +1,9 @@
 package com.czertainly.discovery.ip.service;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
-import com.czertainly.api.model.common.attribute.content.BooleanAttributeContent;
-import com.czertainly.api.model.common.attribute.content.IntegerAttributeContent;
-import com.czertainly.api.model.common.attribute.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.BooleanAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import com.czertainly.discovery.ip.dao.DiscoveryHistory;
