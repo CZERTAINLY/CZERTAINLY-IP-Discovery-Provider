@@ -1,6 +1,6 @@
 package com.czertainly.discovery.ip.service;
 
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +15,7 @@ public class AttributeServiceTest {
 
     @Test
     public void testAttributeResponse() {
-        List<AttributeDefinition> attributes = attributeService.getAttributes("IP-Hostname");
+        List<BaseAttribute> attributes = attributeService.getAttributes("IP-Hostname");
         Assertions.assertNotNull(attributes);
     }
 }
