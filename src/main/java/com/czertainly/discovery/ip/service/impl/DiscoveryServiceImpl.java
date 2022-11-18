@@ -1,20 +1,26 @@
 package com.czertainly.discovery.ip.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
+import com.czertainly.api.model.common.attribute.v2.InfoAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
-import com.czertainly.discovery.ip.service.ConnectionService;
-import com.czertainly.discovery.ip.service.DiscoveryHistoryService;
-import com.czertainly.discovery.ip.service.DiscoveryService;
-import com.czertainly.discovery.ip.util.DiscoverIpHandler;
-import com.czertainly.discovery.ip.util.MetaDefinitions;
-import com.czertainly.discovery.ip.util.X509ObjectToString;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.discovery.ip.dao.Certificate;
 import com.czertainly.discovery.ip.dao.DiscoveryHistory;
 import com.czertainly.discovery.ip.dto.ConnectionResponse;
 import com.czertainly.discovery.ip.repository.CertificateRepository;
+import com.czertainly.discovery.ip.service.ConnectionService;
+import com.czertainly.discovery.ip.service.DiscoveryHistoryService;
+import com.czertainly.discovery.ip.service.DiscoveryService;
+import com.czertainly.discovery.ip.util.DiscoverIpHandler;
+import com.czertainly.discovery.ip.util.X509ObjectToString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +31,9 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.security.cert.X509Certificate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -57,7 +65,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		dto.setUuid(history.getUuid());
 		dto.setName(history.getName());
 		dto.setStatus(history.getStatus());
-		dto.setMeta(MetaDefinitions.deserialize(history.getMeta()));
+		dto.setMeta(AttributeDefinitionUtils.deserialize(history.getMeta(), InfoAttribute.class));
 		int totalCertificateSize = certificateRepository.findByDiscoveryId(history.getId()).size();
 		dto.setTotalCertificatesDiscovered(totalCertificateSize);
 		if (history.getStatus() == DiscoveryStatus.IN_PROGRESS) {
@@ -106,25 +114,94 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		}
 		logger.info("Discovery {} has total of {} certificates from {} sources", request.getName(), allCerts.size(), urls.size());
 		history.setStatus(DiscoveryStatus.COMPLETED);
-		
-		Map<String, Object> meta = new LinkedHashMap<>();
-		meta.put("totalUrls", urls.size());
-		meta.put("successUrls", successUrls.size());
-		meta.put("failedUrls", failedUrls.size());
-		history.setMeta(MetaDefinitions.serialize(meta));
+		history.setMeta(AttributeDefinitionUtils.serialize(getDiscoveryMetadata(urls.size(), successUrls.size(), failedUrls.size())));
 		discoveryHistoryService.setHistory(history);
 		logger.info("Discovery Completed. Name of the discovery is {}", request.getName());
 	}
 	
 	private void createCertificateEntry(X509Certificate certificate, Long discoveryId, String discoverySource) {
-		Map<String, Object> meta = new HashMap<>();
-		meta.put("discoverySource",discoverySource);
 		Certificate cert = new Certificate();
 		cert.setDiscoveryId(discoveryId);
-		cert.setMeta(MetaDefinitions.serialize(meta));
+		cert.setMeta(AttributeDefinitionUtils.serialize(getCertificateMetadata(discoverySource)));
 		cert.setBase64Content(X509ObjectToString.toPem(certificate));
 		cert.setUuid(UUID.randomUUID().toString());
 		certificateRepository.save(cert);
+	}
+
+	private List<InfoAttribute> getDiscoveryMetadata(Integer totalUrls, Integer successUrls, Integer failedUrls) {
+		List<InfoAttribute> attributes = new ArrayList<>();
+
+		//Total URL
+		InfoAttribute totalAttribute = new InfoAttribute();
+		totalAttribute.setName("totalUrls");
+		totalAttribute.setUuid("872ca286-601f-11ed-9b6a-0242ac120002");
+		totalAttribute.setContentType(AttributeContentType.INTEGER);
+		totalAttribute.setType(AttributeType.META);
+		totalAttribute.setDescription("Total number of URLs for the discovery");
+
+		InfoAttributeProperties totalAttributeProperties = new InfoAttributeProperties();
+		totalAttributeProperties.setLabel("Total URLs");
+		totalAttributeProperties.setVisible(true);
+
+		totalAttribute.setProperties(totalAttributeProperties);
+		totalAttribute.setContent(List.of(new IntegerAttributeContent(totalUrls.toString(), totalUrls)));
+		attributes.add(totalAttribute);
+
+		//Success URL
+		InfoAttribute successAttribute = new InfoAttribute();
+		successAttribute.setName("successUrls");
+		successAttribute.setUuid("872ca600-601f-11ed-9b6a-0242ac120002");
+		successAttribute.setContentType(AttributeContentType.INTEGER);
+		successAttribute.setType(AttributeType.META);
+		successAttribute.setDescription("Successful certificate discovery URLs");
+
+		InfoAttributeProperties successAttributeProperties = new InfoAttributeProperties();
+		successAttributeProperties.setLabel("No Of Success URLs");
+		successAttributeProperties.setVisible(true);
+
+		successAttribute.setProperties(totalAttributeProperties);
+		successAttribute.setContent(List.of(new IntegerAttributeContent(successUrls.toString(), successUrls)));
+		attributes.add(successAttribute);
+
+		//Failed URL
+		InfoAttribute failedAttribute = new InfoAttribute();
+		failedAttribute.setName("failedUrls");
+		failedAttribute.setUuid("872ca7ea-601f-11ed-9b6a-0242ac120002");
+		failedAttribute.setContentType(AttributeContentType.INTEGER);
+		failedAttribute.setType(AttributeType.META);
+		failedAttribute.setDescription("Failed certificate discovery URLs");
+
+		InfoAttributeProperties failedAttributeProperties = new InfoAttributeProperties();
+		failedAttributeProperties.setLabel("Number of Failed URLs");
+		failedAttributeProperties.setVisible(true);
+
+		failedAttribute.setProperties(totalAttributeProperties);
+		failedAttribute.setContent(List.of(new IntegerAttributeContent(successUrls.toString(), successUrls)));
+		attributes.add(failedAttribute);
+
+		return attributes;
+	}
+
+	private List<InfoAttribute> getCertificateMetadata(String discoverySource) {
+		List<InfoAttribute> attributes = new ArrayList<>();
+
+		//Total URL
+		InfoAttribute attribute = new InfoAttribute();
+		attribute.setName("discoverySource");
+		attribute.setUuid("000043aa-6022-11ed-9b6a-0242ac120002");
+		attribute.setContentType(AttributeContentType.STRING);
+		attribute.setType(AttributeType.META);
+		attribute.setDescription("Source from where the certificate is discovered");
+
+		InfoAttributeProperties attributeProperties = new InfoAttributeProperties();
+		attributeProperties.setLabel("Discovery Source");
+		attributeProperties.setVisible(true);
+
+		attribute.setProperties(attributeProperties);
+		attribute.setContent(List.of(new StringAttributeContent(discoverySource, discoverySource)));
+		attributes.add(attribute);
+
+		return attributes;
 	}
 	
 }

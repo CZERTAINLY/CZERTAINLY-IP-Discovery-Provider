@@ -1,7 +1,7 @@
 package com.czertainly.discovery.ip.service.impl;
 
-import com.czertainly.discovery.ip.service.ConnectionService;
 import com.czertainly.discovery.ip.dto.ConnectionResponse;
+import com.czertainly.discovery.ip.service.ConnectionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
