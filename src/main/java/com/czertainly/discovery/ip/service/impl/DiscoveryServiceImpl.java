@@ -136,7 +136,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		totalAttribute.setName("totalUrls");
 		totalAttribute.setUuid("872ca286-601f-11ed-9b6a-0242ac120002");
 		totalAttribute.setContentType(AttributeContentType.INTEGER);
-		totalAttribute.setType(AttributeType.INFO);
+		totalAttribute.setType(AttributeType.META);
 		totalAttribute.setDescription("Total number of URLs for the discovery");
 
 		InfoAttributeProperties totalAttributeProperties = new InfoAttributeProperties();
@@ -152,7 +152,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		successAttribute.setName("successUrls");
 		successAttribute.setUuid("872ca600-601f-11ed-9b6a-0242ac120002");
 		successAttribute.setContentType(AttributeContentType.INTEGER);
-		successAttribute.setType(AttributeType.INFO);
+		successAttribute.setType(AttributeType.META);
 		successAttribute.setDescription("Successful certificate discovery URLs");
 
 		InfoAttributeProperties successAttributeProperties = new InfoAttributeProperties();
@@ -168,7 +168,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		failedAttribute.setName("failedUrls");
 		failedAttribute.setUuid("872ca7ea-601f-11ed-9b6a-0242ac120002");
 		failedAttribute.setContentType(AttributeContentType.INTEGER);
-		failedAttribute.setType(AttributeType.INFO);
+		failedAttribute.setType(AttributeType.META);
 		failedAttribute.setDescription("Failed certificate discovery URLs");
 
 		InfoAttributeProperties failedAttributeProperties = new InfoAttributeProperties();
@@ -190,7 +190,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		attribute.setName("discoverySource");
 		attribute.setUuid("000043aa-6022-11ed-9b6a-0242ac120002");
 		attribute.setContentType(AttributeContentType.STRING);
-		attribute.setType(AttributeType.INFO);
+		attribute.setType(AttributeType.META);
 		attribute.setDescription("Source from where the certificate is discovered");
 
 		InfoAttributeProperties attributeProperties = new InfoAttributeProperties();
