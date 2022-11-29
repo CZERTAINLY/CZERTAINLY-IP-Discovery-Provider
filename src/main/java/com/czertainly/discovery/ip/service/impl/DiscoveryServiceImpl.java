@@ -159,7 +159,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		successAttributeProperties.setLabel("No Of Success URLs");
 		successAttributeProperties.setVisible(true);
 
-		successAttribute.setProperties(totalAttributeProperties);
+		successAttribute.setProperties(successAttributeProperties);
 		successAttribute.setContent(List.of(new IntegerAttributeContent(successUrls.toString(), successUrls)));
 		attributes.add(successAttribute);
 
@@ -172,10 +172,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		failedAttribute.setDescription("Failed certificate discovery URLs");
 
 		MetadataAttributeProperties failedAttributeProperties = new MetadataAttributeProperties();
-		failedAttributeProperties.setLabel("Number of Failed URLs");
+		failedAttributeProperties.setLabel("No Of Failed URLs");
 		failedAttributeProperties.setVisible(true);
 
-		failedAttribute.setProperties(totalAttributeProperties);
+		failedAttribute.setProperties(failedAttributeProperties);
 		failedAttribute.setContent(List.of(new IntegerAttributeContent(successUrls.toString(), successUrls)));
 		attributes.add(failedAttribute);
 
