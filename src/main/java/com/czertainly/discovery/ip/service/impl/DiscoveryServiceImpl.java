@@ -2,11 +2,11 @@ package com.czertainly.discovery.ip.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
-import com.czertainly.api.model.common.attribute.v2.InfoAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
@@ -65,7 +65,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		dto.setUuid(history.getUuid());
 		dto.setName(history.getName());
 		dto.setStatus(history.getStatus());
-		dto.setMeta(AttributeDefinitionUtils.deserialize(history.getMeta(), InfoAttribute.class));
+		dto.setMeta(AttributeDefinitionUtils.deserialize(history.getMeta(), MetadataAttribute.class));
 		int totalCertificateSize = certificateRepository.findByDiscoveryId(history.getId()).size();
 		dto.setTotalCertificatesDiscovered(totalCertificateSize);
 		if (history.getStatus() == DiscoveryStatus.IN_PROGRESS) {
@@ -128,18 +128,18 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		certificateRepository.save(cert);
 	}
 
-	private List<InfoAttribute> getDiscoveryMetadata(Integer totalUrls, Integer successUrls, Integer failedUrls) {
-		List<InfoAttribute> attributes = new ArrayList<>();
+	private List<MetadataAttribute> getDiscoveryMetadata(Integer totalUrls, Integer successUrls, Integer failedUrls) {
+		List<MetadataAttribute> attributes = new ArrayList<>();
 
 		//Total URL
-		InfoAttribute totalAttribute = new InfoAttribute();
+		MetadataAttribute totalAttribute = new MetadataAttribute();
 		totalAttribute.setName("totalUrls");
 		totalAttribute.setUuid("872ca286-601f-11ed-9b6a-0242ac120002");
 		totalAttribute.setContentType(AttributeContentType.INTEGER);
 		totalAttribute.setType(AttributeType.META);
 		totalAttribute.setDescription("Total number of URLs for the discovery");
 
-		InfoAttributeProperties totalAttributeProperties = new InfoAttributeProperties();
+		MetadataAttributeProperties totalAttributeProperties = new MetadataAttributeProperties();
 		totalAttributeProperties.setLabel("Total URLs");
 		totalAttributeProperties.setVisible(true);
 
@@ -148,54 +148,55 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 		attributes.add(totalAttribute);
 
 		//Success URL
-		InfoAttribute successAttribute = new InfoAttribute();
+		MetadataAttribute successAttribute = new MetadataAttribute();
 		successAttribute.setName("successUrls");
 		successAttribute.setUuid("872ca600-601f-11ed-9b6a-0242ac120002");
 		successAttribute.setContentType(AttributeContentType.INTEGER);
 		successAttribute.setType(AttributeType.META);
 		successAttribute.setDescription("Successful certificate discovery URLs");
 
-		InfoAttributeProperties successAttributeProperties = new InfoAttributeProperties();
+		MetadataAttributeProperties successAttributeProperties = new MetadataAttributeProperties();
 		successAttributeProperties.setLabel("No Of Success URLs");
 		successAttributeProperties.setVisible(true);
 
-		successAttribute.setProperties(totalAttributeProperties);
+		successAttribute.setProperties(successAttributeProperties);
 		successAttribute.setContent(List.of(new IntegerAttributeContent(successUrls.toString(), successUrls)));
 		attributes.add(successAttribute);
 
 		//Failed URL
-		InfoAttribute failedAttribute = new InfoAttribute();
+		MetadataAttribute failedAttribute = new MetadataAttribute();
 		failedAttribute.setName("failedUrls");
 		failedAttribute.setUuid("872ca7ea-601f-11ed-9b6a-0242ac120002");
 		failedAttribute.setContentType(AttributeContentType.INTEGER);
 		failedAttribute.setType(AttributeType.META);
 		failedAttribute.setDescription("Failed certificate discovery URLs");
 
-		InfoAttributeProperties failedAttributeProperties = new InfoAttributeProperties();
-		failedAttributeProperties.setLabel("Number of Failed URLs");
+		MetadataAttributeProperties failedAttributeProperties = new MetadataAttributeProperties();
+		failedAttributeProperties.setLabel("No Of Failed URLs");
 		failedAttributeProperties.setVisible(true);
 
-		failedAttribute.setProperties(totalAttributeProperties);
+		failedAttribute.setProperties(failedAttributeProperties);
 		failedAttribute.setContent(List.of(new IntegerAttributeContent(successUrls.toString(), successUrls)));
 		attributes.add(failedAttribute);
 
 		return attributes;
 	}
 
-	private List<InfoAttribute> getCertificateMetadata(String discoverySource) {
-		List<InfoAttribute> attributes = new ArrayList<>();
+	private List<MetadataAttribute> getCertificateMetadata(String discoverySource) {
+		List<MetadataAttribute> attributes = new ArrayList<>();
 
 		//Total URL
-		InfoAttribute attribute = new InfoAttribute();
+		MetadataAttribute attribute = new MetadataAttribute();
 		attribute.setName("discoverySource");
 		attribute.setUuid("000043aa-6022-11ed-9b6a-0242ac120002");
 		attribute.setContentType(AttributeContentType.STRING);
 		attribute.setType(AttributeType.META);
 		attribute.setDescription("Source from where the certificate is discovered");
 
-		InfoAttributeProperties attributeProperties = new InfoAttributeProperties();
+		MetadataAttributeProperties attributeProperties = new MetadataAttributeProperties();
 		attributeProperties.setLabel("Discovery Source");
 		attributeProperties.setVisible(true);
+		attributeProperties.setGlobal(true);
 
 		attribute.setProperties(attributeProperties);
 		attribute.setContent(List.of(new StringAttributeContent(discoverySource, discoverySource)));
