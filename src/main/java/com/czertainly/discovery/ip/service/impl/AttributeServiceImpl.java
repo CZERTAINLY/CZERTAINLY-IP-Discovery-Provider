@@ -49,7 +49,7 @@ public class AttributeServiceImpl implements AttributeService {
         port.setUuid("a9091e0d-f9b9-4514-b275-1dd52aa870ec");
         port.setName(ATTRIBUTE_PORT);
         port.setType(AttributeType.DATA);
-        port.setContentType(AttributeContentType.INTEGER);
+        port.setContentType(AttributeContentType.STRING);
         DataAttributeProperties portProperties = new DataAttributeProperties();
         portProperties.setLabel("Ports");
         portProperties.setRequired(false);
@@ -57,7 +57,7 @@ public class AttributeServiceImpl implements AttributeService {
         portProperties.setVisible(true);
         portProperties.setList(false);
         portProperties.setMultiSelect(false);
-        port.setContent(List.of(new IntegerAttributeContent(443)));
+        port.setContent(List.of(new StringAttributeContent("443", "443")));
         port.setDescription("Multiple values can be given separated by comma ','.");
         port.setProperties(portProperties);
         attributes.add(port);
