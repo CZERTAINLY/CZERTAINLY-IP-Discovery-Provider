@@ -123,7 +123,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             }
         }
         logger.info("Discovery {} has total of {} certificates from {} sources", request.getName(), allCerts.size(), urls.size());
-//        history.setStatus(DiscoveryStatus.COMPLETED);
+        history.setStatus(DiscoveryStatus.COMPLETED);
 
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("totalUrls", urls.size());
