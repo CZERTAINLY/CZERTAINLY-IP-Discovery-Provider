@@ -43,7 +43,7 @@ public class AttributeServiceImpl implements AttributeService {
         port.setUuid("a9091e0d-f9b9-4514-b275-1dd52aa870ec");
         port.setName(ATTRIBUTE_PORT);
         port.setLabel("Ports");
-        port.setType(AttributeType.INTEGER);
+        port.setType(AttributeType.STRING);
         port.setRequired(false);
         port.setReadOnly(false);
         port.setVisible(true);

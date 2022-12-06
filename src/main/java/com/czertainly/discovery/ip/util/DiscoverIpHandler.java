@@ -24,11 +24,15 @@ public class DiscoverIpHandler {
 
 		String kind = AttributeDefinitionUtils.getAttributeContentValue("kind", request.getAttributes(), BaseAttributeContent.class);
 		String ip = AttributeDefinitionUtils.getAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_DISCOVERY_IP, request.getAttributes(), BaseAttributeContent.class);
-		String ports = AttributeDefinitionUtils.getAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_PORT, request.getAttributes(), BaseAttributeContent.class).toString();
+		String ports = AttributeDefinitionUtils.getAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_PORT, request.getAttributes(), BaseAttributeContent.class);
 		Boolean allPort = AttributeDefinitionUtils.getAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_ALL_PORTS, request.getAttributes(), BaseAttributeContent.class);
 
 		if (allPort == null) {
 			allPort = false;
+		}
+
+		if (ports == null) {
+			ports = "443";
 		}
 
 		return getUrl(ip, kind, ports, allPort);
