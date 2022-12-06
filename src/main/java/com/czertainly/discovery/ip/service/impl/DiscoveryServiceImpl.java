@@ -40,169 +40,202 @@ import java.util.stream.Collectors;
 @Transactional
 public class DiscoveryServiceImpl implements DiscoveryService {
 
-	private static final Logger logger = LoggerFactory.getLogger(DiscoveryServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(DiscoveryServiceImpl.class);
+    private ConnectionService connectionService;
+    private CertificateRepository certificateRepository;
+    private DiscoveryHistoryService discoveryHistoryService;
 
-	@Autowired
-	public void setConnectionService(ConnectionService connectionService) {
-		this.connectionService = connectionService;
-	}
-	@Autowired
-	public void setCertificateRepository(CertificateRepository certificateRepository) {
-		this.certificateRepository = certificateRepository;
-	}
-	@Autowired
-	public void setDiscoveryHistoryService(DiscoveryHistoryService discoveryHistoryService) {
-		this.discoveryHistoryService = discoveryHistoryService;
-	}
+    @Autowired
+    public void setConnectionService(ConnectionService connectionService) {
+        this.connectionService = connectionService;
+    }
 
-	private ConnectionService connectionService;
-	private CertificateRepository certificateRepository;
-	private DiscoveryHistoryService discoveryHistoryService;
-	
-	@Override
-	public DiscoveryProviderDto getProviderDtoData(DiscoveryDataRequestDto request, DiscoveryHistory history) {
-		DiscoveryProviderDto dto = new DiscoveryProviderDto();
-		dto.setUuid(history.getUuid());
-		dto.setName(history.getName());
-		dto.setStatus(history.getStatus());
-		dto.setMeta(AttributeDefinitionUtils.deserialize(history.getMeta(), MetadataAttribute.class));
-		int totalCertificateSize = certificateRepository.findByDiscoveryId(history.getId()).size();
-		dto.setTotalCertificatesDiscovered(totalCertificateSize);
-		if (history.getStatus() == DiscoveryStatus.IN_PROGRESS) {
-			dto.setCertificateData(new ArrayList<>());
-			dto.setTotalCertificatesDiscovered(0);
-		}
-		else {
-				Pageable page = PageRequest.of(request.getStartIndex(), request.getEndIndex());
-				dto.setCertificateData(certificateRepository.findAllByDiscoveryId(history.getId(), page).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
-		}
-		return dto;
-	}
+    @Autowired
+    public void setCertificateRepository(CertificateRepository certificateRepository) {
+        this.certificateRepository = certificateRepository;
+    }
 
-	@Override
-	public void deleteDiscovery(String uuid) throws NotFoundException {
-		DiscoveryHistory discoveryHistory = discoveryHistoryService.getHistoryByUuid(uuid);
-		List<Certificate> certificates = certificateRepository.findByDiscoveryId(discoveryHistory.getId());
-		certificateRepository.deleteAll(certificates);
-		discoveryHistoryService.deleteHistory(discoveryHistory);
-	}
+    @Autowired
+    public void setDiscoveryHistoryService(DiscoveryHistoryService discoveryHistoryService) {
+        this.discoveryHistoryService = discoveryHistoryService;
+    }
 
-	@Override
-	@Async
-	public void discoverCertificate(DiscoveryRequestDto request, DiscoveryHistory history) {
-		logger.info("Discovery initiated for the request with name {}", request.getName());
-		List<String> urls = DiscoverIpHandler.getAllIp(request);
-		List<String> successUrls = new ArrayList<>();
-		List<String> failedUrls = new ArrayList<>();
-		List<String> allCerts = new ArrayList<>();
-		for (String url : urls) {
-			logger.debug("Discovering certificate for " + url);
-			try {
-				ConnectionResponse connection = connectionService.getCertificates(url);
-				logger.debug("Connection to the url success. Certificates obtained");
-				X509Certificate[] certificates = connection.getCertificates();
-				for (X509Certificate certificate : certificates) {
-					createCertificateEntry(certificate, history.getId(),url);
-					allCerts.add("Certificate");
-				}
-				successUrls.add(url);
-			} catch (Exception e) {
-				logger.error("Unable to connect to the URL " + url);
-				logger.error(e.getMessage());
-				failedUrls.add(url);
-			}
-		}
-		logger.info("Discovery {} has total of {} certificates from {} sources", request.getName(), allCerts.size(), urls.size());
-		history.setStatus(DiscoveryStatus.COMPLETED);
-		history.setMeta(AttributeDefinitionUtils.serialize(getDiscoveryMetadata(urls.size(), successUrls.size(), failedUrls.size())));
-		discoveryHistoryService.setHistory(history);
-		logger.info("Discovery Completed. Name of the discovery is {}", request.getName());
-	}
-	
-	private void createCertificateEntry(X509Certificate certificate, Long discoveryId, String discoverySource) {
-		Certificate cert = new Certificate();
-		cert.setDiscoveryId(discoveryId);
-		cert.setMeta(AttributeDefinitionUtils.serialize(getCertificateMetadata(discoverySource)));
-		cert.setBase64Content(X509ObjectToString.toPem(certificate));
-		cert.setUuid(UUID.randomUUID().toString());
-		certificateRepository.save(cert);
-	}
+    @Override
+    public DiscoveryProviderDto getProviderDtoData(DiscoveryDataRequestDto request, DiscoveryHistory history) {
+        DiscoveryProviderDto dto = new DiscoveryProviderDto();
+        dto.setUuid(history.getUuid());
+        dto.setName(history.getName());
+        dto.setStatus(history.getStatus());
+        dto.setMeta(AttributeDefinitionUtils.deserialize(history.getMeta(), MetadataAttribute.class));
+        int totalCertificateSize = certificateRepository.findByDiscoveryId(history.getId()).size();
+        dto.setTotalCertificatesDiscovered(totalCertificateSize);
+        if (history.getStatus() == DiscoveryStatus.IN_PROGRESS) {
+            dto.setCertificateData(new ArrayList<>());
+            dto.setTotalCertificatesDiscovered(0);
+        } else {
+            Pageable page = PageRequest.of(request.getStartIndex(), request.getEndIndex());
+            dto.setCertificateData(certificateRepository.findAllByDiscoveryId(history.getId(), page).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
+        }
+        return dto;
+    }
 
-	private List<MetadataAttribute> getDiscoveryMetadata(Integer totalUrls, Integer successUrls, Integer failedUrls) {
-		List<MetadataAttribute> attributes = new ArrayList<>();
+    @Override
+    public void deleteDiscovery(String uuid) throws NotFoundException {
+        DiscoveryHistory discoveryHistory = discoveryHistoryService.getHistoryByUuid(uuid);
+        List<Certificate> certificates = certificateRepository.findByDiscoveryId(discoveryHistory.getId());
+        certificateRepository.deleteAll(certificates);
+        discoveryHistoryService.deleteHistory(discoveryHistory);
+    }
 
-		//Total URL
-		MetadataAttribute totalAttribute = new MetadataAttribute();
-		totalAttribute.setName("totalUrls");
-		totalAttribute.setUuid("872ca286-601f-11ed-9b6a-0242ac120002");
-		totalAttribute.setContentType(AttributeContentType.INTEGER);
-		totalAttribute.setType(AttributeType.META);
-		totalAttribute.setDescription("Total number of URLs for the discovery");
+    @Override
+    @Async
+    public void discoverCertificate(DiscoveryRequestDto request, DiscoveryHistory history) throws NotFoundException {
+        try {
+            discoverCertificatesInternal(request, history);
+        } catch (Exception e) {
+            history.setStatus(DiscoveryStatus.FAILED);
+            history.setMeta(AttributeDefinitionUtils.serialize(getReasonMeta(e.getMessage())));
+            discoveryHistoryService.setHistory(history);
+            logger.error(e.getMessage());
+        }
+    }
 
-		MetadataAttributeProperties totalAttributeProperties = new MetadataAttributeProperties();
-		totalAttributeProperties.setLabel("Total URLs");
-		totalAttributeProperties.setVisible(true);
+    public void discoverCertificatesInternal(DiscoveryRequestDto request, DiscoveryHistory history) {
+        logger.info("Discovery initiated for the request with name {}", request.getName());
+        List<String> urls = DiscoverIpHandler.getAllIp(request);
+        List<String> successUrls = new ArrayList<>();
+        List<String> failedUrls = new ArrayList<>();
+        List<String> allCerts = new ArrayList<>();
+        for (String url : urls) {
+            logger.debug("Discovering certificate for " + url);
+            try {
+                ConnectionResponse connection = connectionService.getCertificates(url);
+                logger.debug("Connection to the url success. Certificates obtained");
+                X509Certificate[] certificates = connection.getCertificates();
+                for (X509Certificate certificate : certificates) {
+                    createCertificateEntry(certificate, history.getId(), url);
+                    allCerts.add("Certificate");
+                }
+                successUrls.add(url);
+            } catch (Exception e) {
+                logger.error("Unable to connect to the URL " + url);
+                logger.error(e.getMessage());
+                failedUrls.add(url);
+            }
+        }
+        logger.info("Discovery {} has total of {} certificates from {} sources", request.getName(), allCerts.size(), urls.size());
+        history.setStatus(DiscoveryStatus.COMPLETED);
+        history.setMeta(AttributeDefinitionUtils.serialize(getDiscoveryMetadata(urls.size(), successUrls.size(), failedUrls.size())));
+        discoveryHistoryService.setHistory(history);
+        logger.info("Discovery Completed. Name of the discovery is {}", request.getName());
+    }
 
-		totalAttribute.setProperties(totalAttributeProperties);
-		totalAttribute.setContent(List.of(new IntegerAttributeContent(totalUrls.toString(), totalUrls)));
-		attributes.add(totalAttribute);
+    private void createCertificateEntry(X509Certificate certificate, Long discoveryId, String discoverySource) {
+        Certificate cert = new Certificate();
+        cert.setDiscoveryId(discoveryId);
+        cert.setMeta(AttributeDefinitionUtils.serialize(getCertificateMetadata(discoverySource)));
+        cert.setBase64Content(X509ObjectToString.toPem(certificate));
+        cert.setUuid(UUID.randomUUID().toString());
+        certificateRepository.save(cert);
+    }
 
-		//Success URL
-		MetadataAttribute successAttribute = new MetadataAttribute();
-		successAttribute.setName("successUrls");
-		successAttribute.setUuid("872ca600-601f-11ed-9b6a-0242ac120002");
-		successAttribute.setContentType(AttributeContentType.INTEGER);
-		successAttribute.setType(AttributeType.META);
-		successAttribute.setDescription("Successful certificate discovery URLs");
+    private List<MetadataAttribute> getDiscoveryMetadata(Integer totalUrls, Integer successUrls, Integer failedUrls) {
+        List<MetadataAttribute> attributes = new ArrayList<>();
 
-		MetadataAttributeProperties successAttributeProperties = new MetadataAttributeProperties();
-		successAttributeProperties.setLabel("No Of Success URLs");
-		successAttributeProperties.setVisible(true);
+        //Total URL
+        MetadataAttribute totalAttribute = new MetadataAttribute();
+        totalAttribute.setName("totalUrls");
+        totalAttribute.setUuid("872ca286-601f-11ed-9b6a-0242ac120002");
+        totalAttribute.setContentType(AttributeContentType.INTEGER);
+        totalAttribute.setType(AttributeType.META);
+        totalAttribute.setDescription("Total number of URLs for the discovery");
 
-		successAttribute.setProperties(successAttributeProperties);
-		successAttribute.setContent(List.of(new IntegerAttributeContent(successUrls.toString(), successUrls)));
-		attributes.add(successAttribute);
+        MetadataAttributeProperties totalAttributeProperties = new MetadataAttributeProperties();
+        totalAttributeProperties.setLabel("Total URLs");
+        totalAttributeProperties.setVisible(true);
 
-		//Failed URL
-		MetadataAttribute failedAttribute = new MetadataAttribute();
-		failedAttribute.setName("failedUrls");
-		failedAttribute.setUuid("872ca7ea-601f-11ed-9b6a-0242ac120002");
-		failedAttribute.setContentType(AttributeContentType.INTEGER);
-		failedAttribute.setType(AttributeType.META);
-		failedAttribute.setDescription("Failed certificate discovery URLs");
+        totalAttribute.setProperties(totalAttributeProperties);
+        totalAttribute.setContent(List.of(new IntegerAttributeContent(totalUrls.toString(), totalUrls)));
+        attributes.add(totalAttribute);
 
-		MetadataAttributeProperties failedAttributeProperties = new MetadataAttributeProperties();
-		failedAttributeProperties.setLabel("No Of Failed URLs");
-		failedAttributeProperties.setVisible(true);
+        //Success URL
+        MetadataAttribute successAttribute = new MetadataAttribute();
+        successAttribute.setName("successUrls");
+        successAttribute.setUuid("872ca600-601f-11ed-9b6a-0242ac120002");
+        successAttribute.setContentType(AttributeContentType.INTEGER);
+        successAttribute.setType(AttributeType.META);
+        successAttribute.setDescription("Successful certificate discovery URLs");
 
-		failedAttribute.setProperties(failedAttributeProperties);
-		failedAttribute.setContent(List.of(new IntegerAttributeContent(successUrls.toString(), successUrls)));
-		attributes.add(failedAttribute);
+        MetadataAttributeProperties successAttributeProperties = new MetadataAttributeProperties();
+        successAttributeProperties.setLabel("No Of Success URLs");
+        successAttributeProperties.setVisible(true);
 
-		return attributes;
-	}
+        successAttribute.setProperties(successAttributeProperties);
+        successAttribute.setContent(List.of(new IntegerAttributeContent(successUrls.toString(), successUrls)));
+        attributes.add(successAttribute);
 
-	private List<MetadataAttribute> getCertificateMetadata(String discoverySource) {
-		List<MetadataAttribute> attributes = new ArrayList<>();
+        //Failed URL
+        MetadataAttribute failedAttribute = new MetadataAttribute();
+        failedAttribute.setName("failedUrls");
+        failedAttribute.setUuid("872ca7ea-601f-11ed-9b6a-0242ac120002");
+        failedAttribute.setContentType(AttributeContentType.INTEGER);
+        failedAttribute.setType(AttributeType.META);
+        failedAttribute.setDescription("Failed certificate discovery URLs");
 
-		//Total URL
-		MetadataAttribute attribute = new MetadataAttribute();
-		attribute.setName("discoverySource");
-		attribute.setUuid("000043aa-6022-11ed-9b6a-0242ac120002");
-		attribute.setContentType(AttributeContentType.STRING);
-		attribute.setType(AttributeType.META);
-		attribute.setDescription("Source from where the certificate is discovered");
+        MetadataAttributeProperties failedAttributeProperties = new MetadataAttributeProperties();
+        failedAttributeProperties.setLabel("No Of Failed URLs");
+        failedAttributeProperties.setVisible(true);
 
-		MetadataAttributeProperties attributeProperties = new MetadataAttributeProperties();
-		attributeProperties.setLabel("Discovery Source");
-		attributeProperties.setVisible(true);
-		attributeProperties.setGlobal(true);
+        failedAttribute.setProperties(failedAttributeProperties);
+        failedAttribute.setContent(List.of(new IntegerAttributeContent(successUrls.toString(), successUrls)));
+        attributes.add(failedAttribute);
 
-		attribute.setProperties(attributeProperties);
-		attribute.setContent(List.of(new StringAttributeContent(discoverySource, discoverySource)));
-		attributes.add(attribute);
+        return attributes;
+    }
 
-		return attributes;
-	}
-	
+    private List<MetadataAttribute> getCertificateMetadata(String discoverySource) {
+        List<MetadataAttribute> attributes = new ArrayList<>();
+
+        //Total URL
+        MetadataAttribute attribute = new MetadataAttribute();
+        attribute.setName("discoverySource");
+        attribute.setUuid("000043aa-6022-11ed-9b6a-0242ac120002");
+        attribute.setContentType(AttributeContentType.STRING);
+        attribute.setType(AttributeType.META);
+        attribute.setDescription("Source from where the certificate is discovered");
+
+        MetadataAttributeProperties attributeProperties = new MetadataAttributeProperties();
+        attributeProperties.setLabel("Discovery Source");
+        attributeProperties.setVisible(true);
+        attributeProperties.setGlobal(true);
+
+        attribute.setProperties(attributeProperties);
+        attribute.setContent(List.of(new StringAttributeContent(discoverySource, discoverySource)));
+        attributes.add(attribute);
+
+        return attributes;
+    }
+
+    private List<MetadataAttribute> getReasonMeta(String exception) {
+        List<MetadataAttribute> attributes = new ArrayList<>();
+
+        //Exception Reason
+        MetadataAttribute attribute = new MetadataAttribute();
+        attribute.setName("reason");
+        attribute.setUuid("abc0412a-60f6-11ed-9b6a-0242ac120002");
+        attribute.setContentType(AttributeContentType.STRING);
+        attribute.setType(AttributeType.META);
+        attribute.setDescription("Reason for failure");
+
+        MetadataAttributeProperties attributeProperties = new MetadataAttributeProperties();
+        attributeProperties.setLabel("Reason");
+        attributeProperties.setVisible(true);
+
+        attribute.setProperties(attributeProperties);
+        attribute.setContent(List.of(new StringAttributeContent(exception)));
+        attributes.add(attribute);
+
+        return attributes;
+    }
+
 }

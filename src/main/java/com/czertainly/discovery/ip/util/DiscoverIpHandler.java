@@ -26,11 +26,18 @@ public class DiscoverIpHandler {
 
         String kind = request.getKind();
         String ip = AttributeDefinitionUtils.getSingleItemAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_DISCOVERY_IP, request.getAttributes(), StringAttributeContent.class).getData();
-        String ports = AttributeDefinitionUtils.getSingleItemAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_PORT, request.getAttributes(), IntegerAttributeContent.class).getData().toString();
-        Boolean allPort = AttributeDefinitionUtils.getSingleItemAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_ALL_PORTS, request.getAttributes(), BooleanAttributeContent.class).getData();
+        StringAttributeContent portContent = AttributeDefinitionUtils.getSingleItemAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_PORT, request.getAttributes(), StringAttributeContent.class);
+        BooleanAttributeContent allPortContent = AttributeDefinitionUtils.getSingleItemAttributeContentValue(AttributeServiceImpl.ATTRIBUTE_ALL_PORTS, request.getAttributes(), BooleanAttributeContent.class);
 
-        if (allPort == null) {
-            allPort = false;
+        Boolean allPort = false;
+        String ports = "443";
+
+        if (allPortContent != null && allPortContent.getData() != null) {
+            allPort = allPortContent.getData();
+        }
+
+        if(portContent != null && portContent.getData() != null) {
+            ports = portContent.getData();
         }
 
         return getUrl(ip, kind, ports, allPort);
