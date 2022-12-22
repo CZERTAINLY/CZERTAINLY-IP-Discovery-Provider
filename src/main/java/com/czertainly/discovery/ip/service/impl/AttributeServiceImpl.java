@@ -75,6 +75,7 @@ public class AttributeServiceImpl implements AttributeService {
         allPortProperties.setVisible(true);
         allPortProperties.setList(false);
         allPortProperties.setMultiSelect(false);
+        allPorts.setProperties(allPortProperties);
         allPorts.setContent(List.of(new BooleanAttributeContent(false)));
         allPorts.setDescription("Check to discover certificates from all ports.");
         attributes.add(allPorts);
