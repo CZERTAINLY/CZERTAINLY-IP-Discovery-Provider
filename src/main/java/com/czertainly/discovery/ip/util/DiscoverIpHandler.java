@@ -1,7 +1,6 @@
 package com.czertainly.discovery.ip.util;
 
 import com.czertainly.api.model.common.attribute.v2.content.BooleanAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
