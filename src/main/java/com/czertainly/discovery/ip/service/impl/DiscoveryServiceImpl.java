@@ -132,11 +132,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private void createCertificateEntry(X509Certificate certificate, Long discoveryId, String discoverySource) {
         Certificate cert = new Certificate();
-        cert.setDiscoveryId(discoveryId);
-        cert.setMeta(AttributeDefinitionUtils.serialize(getCertificateMetadata(discoverySource)));
-        cert.setBase64Content(X509ObjectToString.toPem(certificate));
-        cert.setUuid(UUID.randomUUID().toString());
-        certificateRepository.save(cert);
+        String base64Content = X509ObjectToString.toPem(certificate);
+        if (certificateRepository.findByDiscoveryIdAndBase64Content(discoveryId, base64Content).isEmpty()) {
+            cert.setDiscoveryId(discoveryId);
+            cert.setMeta(AttributeDefinitionUtils.serialize(getCertificateMetadata(discoverySource)));
+            cert.setBase64Content(base64Content);
+            cert.setUuid(UUID.randomUUID().toString());
+            certificateRepository.save(cert);
+        }
     }
 
     private List<MetadataAttribute> getDiscoveryMetadata(Integer totalUrls, Integer successUrls, Integer failedUrls) {

@@ -14,5 +14,6 @@ import java.util.Optional;
 public interface CertificateRepository extends JpaRepository<Certificate, Long>{
 	List<Certificate> findAllByDiscoveryId(Long discoveryId, Pageable pagable);
 	List<Certificate> findByDiscoveryId(Long discoveryId);
+	List<Certificate> findByDiscoveryIdAndBase64Content(Long discoveryId, String base64Content);
 	Optional<Certificate> findById(Long id);
 }
