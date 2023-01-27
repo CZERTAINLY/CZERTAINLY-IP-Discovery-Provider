@@ -1,10 +1,10 @@
 package com.czertainly.discovery.ip.repository;
 
 import com.czertainly.discovery.ip.dao.DiscoveryHistory;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import javax.transaction.Transactional;
 import java.util.Optional;
 
 @Repository

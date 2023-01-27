@@ -21,6 +21,7 @@ import com.czertainly.discovery.ip.service.DiscoveryHistoryService;
 import com.czertainly.discovery.ip.service.DiscoveryService;
 import com.czertainly.discovery.ip.util.DiscoverIpHandler;
 import com.czertainly.discovery.ip.util.X509ObjectToString;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +30,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import javax.transaction.Transactional;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
@@ -132,11 +132,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private void createCertificateEntry(X509Certificate certificate, Long discoveryId, String discoverySource) {
         Certificate cert = new Certificate();
-        cert.setDiscoveryId(discoveryId);
-        cert.setMeta(AttributeDefinitionUtils.serialize(getCertificateMetadata(discoverySource)));
-        cert.setBase64Content(X509ObjectToString.toPem(certificate));
-        cert.setUuid(UUID.randomUUID().toString());
-        certificateRepository.save(cert);
+        String base64Content = X509ObjectToString.toPem(certificate);
+        if (certificateRepository.findByDiscoveryIdAndBase64Content(discoveryId, base64Content).isEmpty()) {
+            cert.setDiscoveryId(discoveryId);
+            cert.setMeta(AttributeDefinitionUtils.serialize(getCertificateMetadata(discoverySource)));
+            cert.setBase64Content(base64Content);
+            cert.setUuid(UUID.randomUUID().toString());
+            certificateRepository.save(cert);
+        }
     }
 
     private List<MetadataAttribute> getDiscoveryMetadata(Integer totalUrls, Integer successUrls, Integer failedUrls) {
