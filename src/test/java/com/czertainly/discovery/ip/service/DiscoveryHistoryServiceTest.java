@@ -3,14 +3,13 @@ package com.czertainly.discovery.ip.service;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import com.czertainly.discovery.ip.dao.DiscoveryHistory;
+import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
-
-import javax.transaction.Transactional;
 
 @SpringBootTest
 @Transactional

@@ -1,10 +1,9 @@
 # CZERTAINLY Network Discovery Provider
 
-> This repository is part of the commercial open-source project CZERTAINLY, but the connector is available under subscription. 
-> You can find more information about the project at [CZERTAINLY](https://github.com/3KeyCompany/CZERTAINLY) repository, 
-> including the contribution guide.
+> This repository is part of the commercial open-source project CZERTAINLY. 
+> You can find more information about the project at [CZERTAINLY](https://github.com/3KeyCompany/CZERTAINLY) repository, including the contribution guide.
 
-Network Discovery provider, more commonly known as IP/Hostname Discovery provider, implements the logic of discovering certificates that are distributed over the network.
+Network Discovery provider implements the logic of discovering certificates that are distributed over the network.
 
 Network Discovery Provider can discover certificates from:
 - Intranet - Scan the entire infrastructure inside an organization and discover the certificates from application and 
@@ -19,7 +18,7 @@ The `Connector` provides various options during the certificate, including:
 
 ## Short Process Description
 
-`Connector` discovers the certificates from the host without increasing the network traffic and congestion. When the connector receives the request to scan the host, it tries to connect to the ssl port (which can be left default to 443 or provided with custom value), captures the certificates and parses them. Once the certificates are successfully gathered, it is then sent back to the `Core` for storage and parsing. `Core` takes care of the rest.
+`Connector` discovers the certificates from the host without increasing the network traffic and congestion. When the connector receives the request to scan the host, it tries to connect to the ssl port (which can be left default to `443` or provided with custom value), captures the certificates and parses them. Once the certificates are successfully gathered, it is then sent back to the `Core` for storage and parsing. `Core` takes care of the rest.
 
 To know more about `Core`, refer to [CZERTAINLY Core](https://github.com/3KeyCompany/CZERTAINLY-Core).
 
@@ -31,12 +30,13 @@ For more information regarding the `Discovery`, please refer to the [CZERTAINLY 
 
 ## Docker container
 
-Network Discovery Provider is provided as a Docker container. Use the `docker pull harbor.3key.company/czertainly/czertainly-ip-discovery-provider:tagname` to pull the required image from the repository. It can be configured using the following environment variables:
+Network Discovery Provider is provided as a Docker container. Use the `harbor.3key.company/czertainly/czertainly-ip-discovery-provider:tagname` to pull the required image from the repository. It can be configured using the following environment variables:
 
-| Variable        | Description                       | Required | Default value |
-|-----------------|-----------------------------------|----------|---------------|
-| `JDBC_URL`      | JDBC URL for database access      | Yes      | N/A           |
-| `JDBC_USERNAME` | Username to access the database   | Yes      | N/A           |
-| `JDBC_PASSWORD` | Password to access the database   | Yes      | N/A           |
-| `DB_SCHEMA`     | Database schema to use            | No       | network       |
-| `PORT`          | Port where the service is exposed | No       | 8090          |
+| Variable        | Description                                              | Required                                           | Default value |
+|-----------------|----------------------------------------------------------|----------------------------------------------------|---------------|
+| `JDBC_URL`      | JDBC URL for database access                             | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`         |
+| `JDBC_USERNAME` | Username to access the database                          | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`         |
+| `JDBC_PASSWORD` | Password to access the database                          | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`         |
+| `DB_SCHEMA`     | Database schema to use                                   | ![](https://img.shields.io/badge/-NO-red.svg)      | `network`     |
+| `PORT`          | Port where the service is exposed                        | ![](https://img.shields.io/badge/-NO-red.svg)      | `8090`        |
+| `JAVA_OPTS`     | Customize Java system properties for running application | ![](https://img.shields.io/badge/-NO-red.svg)      | `N/A`         |

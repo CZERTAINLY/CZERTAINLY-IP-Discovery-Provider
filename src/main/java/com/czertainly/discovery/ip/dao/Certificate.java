@@ -1,12 +1,13 @@
 package com.czertainly.discovery.ip.dao;
 
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.discovery.ip.util.DtoMapper;
-import com.czertainly.discovery.ip.util.MetaDefinitions;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
 import java.io.Serializable;
 
 
@@ -42,7 +43,7 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Disc
 		DiscoveryProviderCertificateDataDto dto = new DiscoveryProviderCertificateDataDto();
 		dto.setUuid(uuid);
 		dto.setBase64Content(base64Content);
-		dto.setMeta(MetaDefinitions.deserialize(meta));
+		dto.setMeta(AttributeDefinitionUtils.deserialize(meta, MetadataAttribute.class));
 		return dto;
 	}
 
