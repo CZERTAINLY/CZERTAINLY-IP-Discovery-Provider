@@ -190,7 +190,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         failedAttributeProperties.setVisible(true);
 
         failedAttribute.setProperties(failedAttributeProperties);
-        failedAttribute.setContent(List.of(new IntegerAttributeContent(successUrls.toString(), successUrls)));
+        failedAttribute.setContent(List.of(new IntegerAttributeContent(failedUrls.toString(), failedUrls)));
         attributes.add(failedAttribute);
 
         return attributes;
