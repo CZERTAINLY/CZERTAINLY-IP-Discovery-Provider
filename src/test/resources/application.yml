@@ -2,7 +2,7 @@ discovery:
   portOptions: No, Yes
   supportedTypes: IP, Range, Subnet
 server:
-  port: ${PORT:8090}
+  port: ${PORT:8080}
 spring:
   datasource:
     auto-commit: false
