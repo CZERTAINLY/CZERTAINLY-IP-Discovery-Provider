@@ -40,13 +40,13 @@ public class DiscoveryHistoryServiceImpl implements DiscoveryHistoryService {
 
 	@Override
 	public DiscoveryHistory getHistoryById(Long id) throws NotFoundException {
-		logger.info("Finding the discovery history record for ID {}", id);
+		logger.debug("Finding the discovery history record for ID {}", id);
 		return discoveryHistoryRepository.findById(id).orElseThrow(() -> new NotFoundException(DiscoveryHistoryServiceImpl.class, id));
 	}
 
 	@Override
 	public DiscoveryHistory getHistoryByUuid(String uuid) throws NotFoundException {
-		logger.info("Finding the discovery history record for uuid {}", uuid);
+		logger.debug("Finding the discovery history record for uuid {}", uuid);
 		return discoveryHistoryRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(DiscoveryHistoryServiceImpl.class, uuid));
 	}
 	

@@ -2,6 +2,7 @@ package com.czertainly.discovery.ip.service.impl;
 
 import com.czertainly.discovery.ip.dto.ConnectionResponse;
 import com.czertainly.discovery.ip.service.ConnectionService;
+import com.czertainly.discovery.ip.util.InsecureSSL;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,8 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 
 @Service
@@ -21,12 +24,12 @@ public class ConnectionServiceImpl implements ConnectionService {
     private static final Logger logger = LoggerFactory.getLogger(ConnectionServiceImpl.class);
 
     @Override
-    public ConnectionResponse getCertificates(String url) throws IOException, SocketTimeoutException {
+    public ConnectionResponse getCertificates(String url) throws IOException, NoSuchAlgorithmException, KeyManagementException {
 
         logger.info("Requesting the certificate from URL {}", url);
         URL destination = new URL(url);
         try {
-            HttpsURLConnection conn = (HttpsURLConnection) destination.openConnection();
+            HttpsURLConnection conn = InsecureSSL.openInsecureConnection(destination);
             logger.debug("Connection object framed for the URL {}", url);
             conn.setConnectTimeout(300);
             conn.connect();

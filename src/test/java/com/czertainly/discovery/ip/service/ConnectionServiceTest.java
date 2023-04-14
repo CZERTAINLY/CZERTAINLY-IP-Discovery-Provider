@@ -8,6 +8,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 
 @SpringBootTest
 public class ConnectionServiceTest{
@@ -16,7 +18,7 @@ public class ConnectionServiceTest{
     private ConnectionService connectionService;
 
     @Test
-    public void testConnection() throws IOException {
+    public void testConnection() throws IOException, NoSuchAlgorithmException, KeyManagementException {
         ConnectionResponse certificates = connectionService.getCertificates("https://google.com");
         Assertions.assertNotNull(certificates);
     }
