@@ -38,4 +38,5 @@ public class AttributesControllerImpl implements AttributesController {
     public void validateAttributes(@PathVariable String kind, @RequestBody List<RequestAttributeDto> attributes) throws ValidationException {
         attributeService.validateAttributes(kind, attributes);
     }
+
 }
