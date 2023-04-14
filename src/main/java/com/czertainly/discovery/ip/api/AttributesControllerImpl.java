@@ -4,12 +4,14 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.connector.AttributesController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeContent;
 import com.czertainly.discovery.ip.service.AttributeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -35,15 +37,6 @@ public class AttributesControllerImpl implements AttributesController {
     @Override
     public void validateAttributes(@PathVariable String kind, @RequestBody List<RequestAttributeDto> attributes) throws ValidationException {
         attributeService.validateAttributes(kind, attributes);
-    }
-
-    @RequestMapping(
-            path = "/urlsCount",
-            method = RequestMethod.GET,
-            produces = "application/json"
-    )
-    public List<IntegerAttributeContent> getUrlsCount(String ip, String port) {
-        return attributeService.getUrlsCount(ip, port);
     }
 
 }
