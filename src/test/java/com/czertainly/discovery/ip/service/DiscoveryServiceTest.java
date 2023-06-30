@@ -40,8 +40,8 @@ public class DiscoveryServiceTest {
 
         discoveryProviderDtoTestExists = new DiscoveryDataRequestDto();
         discoveryProviderDtoTestExists.setName("test123");
-        discoveryProviderDtoTestExists.setStartIndex(0);
-        discoveryProviderDtoTestExists.setEndIndex(100);
+        discoveryProviderDtoTestExists.setPageNumber(0);
+        discoveryProviderDtoTestExists.setItemsPerPage(100);
 
         RequestAttributeDto kind = new RequestAttributeDto();
         kind.setUuid("72f1ce7d-3e63-458c-8954-2b950240ca33");
