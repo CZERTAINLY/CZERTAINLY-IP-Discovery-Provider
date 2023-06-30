@@ -46,6 +46,8 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 		discoveryService.discoverCertificate(request, history);
 		DiscoveryDataRequestDto dto = new DiscoveryDataRequestDto();
 		dto.setName(request.getName());
+		dto.setPageNumber(0);
+		dto.setItemsPerPage(10);
 		return discoveryService.getProviderDtoData(dto, history);
 		
 	}
