@@ -3,10 +3,10 @@ package com.czertainly.discovery.ip.service.impl;
 import com.czertainly.discovery.ip.dto.ConnectionResponse;
 import com.czertainly.discovery.ip.service.ConnectionService;
 import com.czertainly.discovery.ip.util.InsecureSSL;
-import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.net.ssl.HttpsURLConnection;
 import java.io.IOException;

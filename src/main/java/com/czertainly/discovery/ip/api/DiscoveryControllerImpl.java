@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 
 /**
- * @author Pradeep Saminathan
  * Controller class for all certificate discovery operations.
  * The certificate discovery including all the methods
  */
