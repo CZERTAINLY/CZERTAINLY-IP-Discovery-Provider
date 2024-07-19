@@ -50,17 +50,17 @@ public class DiscoveryServiceTest {
 
         RequestAttributeDto ip = new RequestAttributeDto();
         ip.setUuid("1b6c48ad-c1c7-4c82-91ef-3b61bc9f52ac");
-        ip.setName(AttributeServiceImpl.ATTRIBUTE_DISCOVERY_IP);
+        ip.setName(AttributeServiceImpl.DATA_ATTRIBUTE_DISCOVERY_IP_NAME);
         ip.setContent(List.of(new StringAttributeContent("google.com")));
 
         RequestAttributeDto port = new RequestAttributeDto();
         port.setUuid("a9091e0d-f9b9-4514-b275-1dd52aa870ec");
-        port.setName(AttributeServiceImpl.ATTRIBUTE_PORT);
+        port.setName(AttributeServiceImpl.DATA_ATTRIBUTE_PORT_NAME);
         port.setContent(List.of(new IntegerAttributeContent(443)));
 
         RequestAttributeDto allPorts = new RequestAttributeDto();
         allPorts.setUuid("3c70d728-e8c3-40f9-b9b2-5d7256f89ef0");
-        allPorts.setName(AttributeServiceImpl.ATTRIBUTE_ALL_PORTS);
+        allPorts.setName(AttributeServiceImpl.DATA_ATTRIBUTE_ALL_PORTS_NAME);
         allPorts.setContent(List.of(new BooleanAttributeContent(false)));
         discoveryProviderDtoTest.setAttributes(Arrays.asList(kind, ip, port, allPorts));
 
