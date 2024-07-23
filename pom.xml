@@ -18,6 +18,7 @@
 
 	<properties>
 		<sonar.projectKey>3KeyCompany_CZERTAINLY-IP-Discovery-Provider</sonar.projectKey>
+		<ipaddress.version>5.5.0</ipaddress.version>
 	</properties>
 
 	<dependencies>
@@ -71,6 +72,11 @@
 			<artifactId>commons-net</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>com.github.seancfoley</groupId>
+			<artifactId>ipaddress</artifactId>
+			<version>${ipaddress.version}</version>
+		</dependency>
 
 		<dependency>
 			<groupId>com.h2database</groupId>

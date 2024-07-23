@@ -4,6 +4,7 @@ import com.czertainly.api.interfaces.connector.InfoController;
 import com.czertainly.api.model.client.connector.InfoResponse;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.discovery.ip.EndpointsListener;
+import com.czertainly.discovery.ip.enums.DiscoveryKind;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +27,7 @@ public class InfoControllerImpl implements InfoController {
     @Override
     public List<InfoResponse> listSupportedFunctions() {
     	logger.info("Listing the end points for IP Discovery");
-    	List<String> kinds = List.of("IP-Hostname");
+    	List<String> kinds = DiscoveryKind.getKinds();
     	List<InfoResponse> functions = new ArrayList<>(); 
         functions.add(new InfoResponse(kinds, FunctionGroupCode.DISCOVERY_PROVIDER, endpointsListener.getEndpoints()));
         logger.debug("Functions of the connector is obtained. Value is {}", functions);

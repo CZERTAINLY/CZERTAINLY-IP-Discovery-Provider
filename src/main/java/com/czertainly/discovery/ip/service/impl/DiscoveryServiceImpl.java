@@ -102,7 +102,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     public void discoverCertificatesInternal(DiscoveryRequestDto request, DiscoveryHistory history) {
         logger.info("Discovery initiated for the request with name {}", request.getName());
-        List<String> urls = DiscoverIpHandler.getAllIp(request);
+        Set<String> urls = DiscoverIpHandler.getAllIp(request);
         AtomicInteger successUrlCount = new AtomicInteger(0);
         AtomicInteger failedUrlCount = new AtomicInteger(0);
         AtomicInteger foundCertsCount = new AtomicInteger(0);
