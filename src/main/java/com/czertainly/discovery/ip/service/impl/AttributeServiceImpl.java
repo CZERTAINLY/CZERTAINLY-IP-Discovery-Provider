@@ -7,11 +7,10 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
+import com.czertainly.api.model.common.attribute.v2.constraint.RangeAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.constraint.RegexpAttributeConstraint;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BooleanAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.constraint.data.RangeAttributeConstraintData;
+import com.czertainly.api.model.common.attribute.v2.content.*;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.InfoAttributeProperties;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -99,6 +98,14 @@ public class AttributeServiceImpl implements AttributeService {
     public static final String DATA_ATTRIBUTE_ALL_PORTS_LABEL = "All Ports?";
     public static final BooleanAttributeContent DATA_ATTRIBUTE_ALL_PORTS_DEFAULT_CONTENT = new BooleanAttributeContent(false);
 
+    public static final String DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_UUID = "1517c7a5-34cb-4f94-a0aa-1e9fe5b5b277";
+    public static final String DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_NAME = "data_parallel_executions";
+    public static final String DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_DESCRIPTION = "Number of parallel executions of the discovery process. Default is 1 and maximum is 1000.";
+    public static final String DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_LABEL = "Number of parallel executions";
+    public static final IntegerAttributeContent DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_DEFAULT_CONTENT =
+            new IntegerAttributeContent(1);
+
+
     @Override
     public List<BaseAttribute> getAttributes(String kind) {
         logger.debug("Getting the attributes for {}", kind);
@@ -110,6 +117,7 @@ public class AttributeServiceImpl implements AttributeService {
             attributes.add(createDiscoveryIpDataAttribute());
             attributes.add(createPortDataAttribute());
             attributes.add(createAllPortsDataAttribute());
+            attributes.add(createParallelExecutionsDataAttribute());
         } else {
             throw new IllegalArgumentException("Unsupported kind " + kind);
         }
@@ -147,6 +155,9 @@ public class AttributeServiceImpl implements AttributeService {
 
                 *The discovery can be done on all ports. However, it is recommended to provide the port numbers for better performance
                 and avoiding network issues.*
+                
+                By default, each URL is processed sequentially. The number of parallel executions can be increased
+                to improve the performance. The maximum number of parallel executions that can be set is `1000`.
                 """;
 
         attribute.setContent(List.of(new TextAttributeContent(content)));
@@ -218,6 +229,37 @@ public class AttributeServiceImpl implements AttributeService {
         return attribute;
     }
 
+    private DataAttribute createParallelExecutionsDataAttribute() {
+        DataAttribute attribute = new DataAttribute();
+        attribute.setUuid(DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_UUID);
+        attribute.setName(DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_NAME);
+        attribute.setType(AttributeType.DATA);
+        attribute.setContentType(AttributeContentType.INTEGER);
+        DataAttributeProperties parallelExecutionsProperties = new DataAttributeProperties();
+        parallelExecutionsProperties.setLabel(DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_LABEL);
+        parallelExecutionsProperties.setRequired(false);
+        parallelExecutionsProperties.setReadOnly(false);
+        parallelExecutionsProperties.setVisible(true);
+        parallelExecutionsProperties.setList(false);
+        parallelExecutionsProperties.setMultiSelect(false);
+        attribute.setProperties(parallelExecutionsProperties);
+        attribute.setContent(List.of(DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_DEFAULT_CONTENT));
+        attribute.setDescription(DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_DESCRIPTION);
+
+        // create restrictions
+        RangeAttributeConstraint rangeAttributeConstraint = new RangeAttributeConstraint();
+        RangeAttributeConstraintData rangeData = new RangeAttributeConstraintData();
+        rangeData.setFrom(1);
+        rangeData.setTo(1000);
+        rangeAttributeConstraint.setData(rangeData);
+        rangeAttributeConstraint.setDescription("Allowed values for parallel executions");
+        rangeAttributeConstraint.setErrorMessage("Invalid value for parallel executions, it can be between 1 and 1000");
+
+        attribute.setConstraints(List.of(rangeAttributeConstraint));
+
+        return attribute;
+    }
+
     @Override
     public boolean validateAttributes(String kind, List<RequestAttributeDto> attributes) {
         validateKind(kind);
@@ -275,6 +317,17 @@ public class AttributeServiceImpl implements AttributeService {
         }
 
         return DATA_ATTRIBUTE_ALL_PORTS_DEFAULT_CONTENT.getData();
+    }
+
+    public static Integer getParallelExecutionsDataAttributeContentValue(List<RequestAttributeDto> attributes) {
+        IntegerAttributeContent content = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
+                DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_NAME, attributes, IntegerAttributeContent.class);
+
+        if (content != null && content.getData() != null) {
+            return content.getData();
+        }
+
+        return DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_DEFAULT_CONTENT.getData();
     }
 
 }
