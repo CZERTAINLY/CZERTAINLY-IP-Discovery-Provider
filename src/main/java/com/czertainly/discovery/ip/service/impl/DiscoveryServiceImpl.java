@@ -20,6 +20,7 @@ import com.czertainly.discovery.ip.service.ConnectionService;
 import com.czertainly.discovery.ip.service.DiscoveryHistoryService;
 import com.czertainly.discovery.ip.service.DiscoveryService;
 import com.czertainly.discovery.ip.util.DiscoverIpHandler;
+import com.pivovarit.collectors.ParallelCollectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,8 +34,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @Transactional
@@ -108,16 +113,36 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         AtomicInteger foundCertsCount = new AtomicInteger(0);
         Set<String> uniqueCerts = Collections.synchronizedSet(new HashSet<>()); // Thread-safe set
 
-        for (String url : urls) {
-            logger.debug("Discovering certificate for {}", url);
-            try {
-                // Start a new transaction for each URL
-                processCertificatesForUrl(url, history.getId(), uniqueCerts, foundCertsCount);
-                successUrlCount.incrementAndGet();
-            } catch (Exception e) {
-                logger.error("Unable to process data or URL {}: {}", url, e.getMessage());
-                failedUrlCount.incrementAndGet();
-            }
+        int maxThreads = AttributeServiceImpl.getParallelExecutionsDataAttributeContentValue(request.getAttributes());
+
+        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+
+        try {
+            Stream<String> urlStream = urls.stream();
+            CompletableFuture<Stream<Object>> future = urlStream.collect(
+                    ParallelCollectors.parallel(
+                            url -> {
+                                logger.debug("Discovering certificate for {}", url);
+                                try {
+                                    processCertificatesForUrl(url, history.getId(), uniqueCerts, foundCertsCount);
+                                    successUrlCount.incrementAndGet();
+                                } catch (Exception e) {
+                                    logger.error("Unable to process data or URL {}: {}", url, e.getMessage());
+                                    failedUrlCount.incrementAndGet();
+                                }
+                                return null; // Return null to satisfy the return type
+                            },
+                            executor,
+                            maxThreads
+                    )
+            );
+
+            // Wait for all tasks to complete
+            future.join();
+        } catch (Exception e) {
+            logger.error("An error occurred during discovery: {}", e.getMessage());
+        } finally {
+            executor.shutdown();
         }
 
         logger.info("Discovery {} has total of {} certificates, {} unique, from {} sources", request.getName(), foundCertsCount.get(), uniqueCerts.size(), urls.size());
@@ -126,6 +151,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryHistoryService.setHistory(history);
         logger.info("Discovery Completed. Name of the discovery is {}", request.getName());
     }
+
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public void processCertificatesForUrl(String url, Long historyId, Set<String> uniqueCerts, AtomicInteger foundCertsCount) throws Exception {
