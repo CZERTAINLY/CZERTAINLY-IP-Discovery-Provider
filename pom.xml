@@ -17,9 +17,11 @@
 	<description>Certificate Discovery Connector for CZERTAINLY based on IP address range and ports</description>
 
 	<properties>
-		<sonar.projectKey>3KeyCompany_CZERTAINLY-IP-Discovery-Provider</sonar.projectKey>
 		<java.version>21</java.version>
 		<ipaddress.version>5.5.0</ipaddress.version>
+		<sonar.organization>czertainly</sonar.organization>
+		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
+		<sonar.projectKey>CZERTAINLY_CZERTAINLY-IP-Discovery-Provider</sonar.projectKey>
 	</properties>
 
 	<dependencies>
@@ -125,6 +127,13 @@
 				</configuration>
 			</plugin>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>@{argLine}</argLine>
+				</configuration>
+			</plugin>
+			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
 			</plugin>
@@ -134,7 +143,7 @@
 	<repositories>
 		<repository>
 			<id>github</id>
-			<url>https://maven.pkg.github.com/3keycompany/*</url>
+			<url>https://maven.pkg.github.com/czertainly/*</url>
 			<snapshots>
 				<enabled>true</enabled>
 			</snapshots>

@@ -24,6 +24,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
+            czertainly/czertainly-ip-discovery-provider
             3keycompany/czertainly-ip-discovery-provider
             harbor.3key.company/czertainly/czertainly-ip-discovery-provider
           tags: |
