@@ -1,11 +1,9 @@
 # Build stage
-FROM maven:3.9.8-eclipse-temurin-21 as build
+FROM maven:3.9.9-eclipse-temurin-21 as build
 COPY src /home/app/src
 COPY pom.xml /home/app
 COPY settings.xml /root/.m2/settings.xml
 COPY docker /home/app/docker
-ARG SERVER_USERNAME
-ARG SERVER_PASSWORD
 RUN mvn -f /home/app/pom.xml clean package
 
 # Package stage
