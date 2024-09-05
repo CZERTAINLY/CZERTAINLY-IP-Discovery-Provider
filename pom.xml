@@ -7,24 +7,28 @@
 	<parent>
 		<groupId>com.czertainly</groupId>
 		<artifactId>dependencies</artifactId>
-		<version>1.1.0</version>
+		<version>1.2.0</version>
 	</parent>
 
 	<groupId>com.czertainly</groupId>
 	<artifactId>ip-discovery</artifactId>
-	<version>1.4.0</version>
+	<version>1.5.0</version>
 	<name>CZERTAINLY-IP-Discovery-Provider</name>
 	<description>Certificate Discovery Connector for CZERTAINLY based on IP address range and ports</description>
 
 	<properties>
-		<sonar.projectKey>3KeyCompany_CZERTAINLY-IP-Discovery-Provider</sonar.projectKey>
+		<java.version>21</java.version>
+		<ipaddress.version>5.5.0</ipaddress.version>
+		<sonar.organization>czertainly</sonar.organization>
+		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
+		<sonar.projectKey>CZERTAINLY_CZERTAINLY-IP-Discovery-Provider</sonar.projectKey>
 	</properties>
 
 	<dependencies>
 		<dependency>
 			<groupId>com.czertainly</groupId>
 			<artifactId>interfaces</artifactId>
-			<version>2.9.0</version>
+			<version>2.13.0</version>
 		</dependency>
 
 		<dependency>
@@ -71,6 +75,17 @@
 			<artifactId>commons-net</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>com.github.seancfoley</groupId>
+			<artifactId>ipaddress</artifactId>
+			<version>${ipaddress.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.pivovarit</groupId>
+			<artifactId>parallel-collectors</artifactId>
+			<version>3.1.0</version>
+		</dependency>
 
 		<dependency>
 			<groupId>com.h2database</groupId>
@@ -81,6 +96,11 @@
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-core</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 
 	</dependencies>
@@ -107,6 +127,13 @@
 				</configuration>
 			</plugin>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>@{argLine}</argLine>
+				</configuration>
+			</plugin>
+			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
 			</plugin>
@@ -114,13 +141,6 @@
 	</build>
 
 	<repositories>
-		<repository>
-			<id>github</id>
-			<url>https://maven.pkg.github.com/3keycompany/*</url>
-			<snapshots>
-				<enabled>true</enabled>
-			</snapshots>
-		</repository>
 		<repository>
 			<id>ossrh</id>
 			<url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>

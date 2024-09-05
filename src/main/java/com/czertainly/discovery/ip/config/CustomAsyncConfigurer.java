@@ -9,18 +9,22 @@ import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.discovery.ip.dao.DiscoveryHistory;
 import com.czertainly.discovery.ip.service.DiscoveryHistoryService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 @Configuration
 public class CustomAsyncConfigurer implements AsyncConfigurer {
+
+    private static final Logger logger = LoggerFactory.getLogger(CustomAsyncConfigurer.class);
 
     private DiscoveryHistoryService discoveryHistoryService;
 
@@ -31,13 +35,8 @@ public class CustomAsyncConfigurer implements AsyncConfigurer {
 
     @Override
     public Executor getAsyncExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(10);
-        executor.setMaxPoolSize(Integer.MAX_VALUE);
-        executor.setQueueCapacity(500);
-        executor.setThreadNamePrefix("CertificateDiscovery-");
-        executor.initialize();
-        return executor;
+        // Use virtual threads for the executor
+        return Executors.newVirtualThreadPerTaskExecutor();
     }
 
     @Override
@@ -45,6 +44,7 @@ public class CustomAsyncConfigurer implements AsyncConfigurer {
         return (ex, method, params) -> {
             if (method.getName().equals("discoverCertificate")) {
                 DiscoveryHistory history = (DiscoveryHistory) params[1];
+                logger.error("Error occurred while discovering certificates, name {}: {}", history.getName(), ex.getMessage(), ex);
                 history.setStatus(DiscoveryStatus.FAILED);
                 history.setMeta(AttributeDefinitionUtils.serialize(getReasonMeta(ex.getMessage())));
                 discoveryHistoryService.setHistory(history);
@@ -55,7 +55,7 @@ public class CustomAsyncConfigurer implements AsyncConfigurer {
     private List<MetadataAttribute> getReasonMeta(String exception) {
         List<MetadataAttribute> attributes = new ArrayList<>();
 
-        //Exception Reason
+        // Exception Reason
         MetadataAttribute attribute = new MetadataAttribute();
         attribute.setName("reason");
         attribute.setUuid("abc0412a-60f6-11ed-9b6a-0242ac120002");

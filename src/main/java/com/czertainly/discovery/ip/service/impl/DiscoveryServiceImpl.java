@@ -20,21 +20,27 @@ import com.czertainly.discovery.ip.service.ConnectionService;
 import com.czertainly.discovery.ip.service.DiscoveryHistoryService;
 import com.czertainly.discovery.ip.service.DiscoveryService;
 import com.czertainly.discovery.ip.util.DiscoverIpHandler;
-import com.czertainly.discovery.ip.util.X509ObjectToString;
-import jakarta.transaction.Transactional;
+import com.pivovarit.collectors.ParallelCollectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @Transactional
@@ -73,7 +79,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             dto.setCertificateData(new ArrayList<>());
             dto.setTotalCertificatesDiscovered(0);
         } else {
-            Pageable page = PageRequest.of(request.getPageNumber() <= 0 ? 0 : request.getPageNumber() - 1, request.getItemsPerPage());
+            Pageable page = PageRequest.of(request.getPageNumber() <= 0 ? 0 : request.getPageNumber() - 1, request.getItemsPerPage(), Sort.by(Sort.Direction.ASC, "id"));
             dto.setCertificateData(certificateRepository.findAllByDiscoveryId(history.getId(), page).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
         }
         return dto;
@@ -93,46 +99,78 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             discoverCertificatesInternal(request, history);
         } catch (Exception e) {
+            logger.error("Discovery failed for the request with name {}: {}", request.getName(), e.getMessage(), e);
             history.setStatus(DiscoveryStatus.FAILED);
             history.setMeta(AttributeDefinitionUtils.serialize(getReasonMeta(e.getMessage())));
             discoveryHistoryService.setHistory(history);
-            logger.error(e.getMessage());
         }
     }
 
     public void discoverCertificatesInternal(DiscoveryRequestDto request, DiscoveryHistory history) {
         logger.info("Discovery initiated for the request with name {}", request.getName());
-        List<String> urls = DiscoverIpHandler.getAllIp(request);
-        List<String> successUrls = new ArrayList<>();
-        List<String> failedUrls = new ArrayList<>();
-        List<String> allCerts = new ArrayList<>();
-        for (String url : urls) {
-            logger.debug("Discovering certificate for " + url);
-            try {
-                ConnectionResponse connection = connectionService.getCertificates(url);
-                logger.debug("Connection to the url success. Certificates obtained");
-                X509Certificate[] certificates = connection.getCertificates();
-                for (X509Certificate certificate : certificates) {
-                    createCertificateEntry(certificate, history.getId(), url);
-                    allCerts.add("Certificate");
-                }
-                successUrls.add(url);
-            } catch (Exception e) {
-                logger.error("Unable to connect to the URL " + url);
-                logger.error(e.getMessage());
-                failedUrls.add(url);
-            }
+        Set<String> urls = DiscoverIpHandler.getAllIp(request);
+        AtomicInteger successUrlCount = new AtomicInteger(0);
+        AtomicInteger failedUrlCount = new AtomicInteger(0);
+        AtomicInteger foundCertsCount = new AtomicInteger(0);
+        Set<String> uniqueCerts = Collections.synchronizedSet(new HashSet<>()); // Thread-safe set
+
+        int maxThreads = AttributeServiceImpl.getParallelExecutionsDataAttributeContentValue(request.getAttributes());
+
+        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+
+        try {
+            Stream<String> urlStream = urls.stream();
+            CompletableFuture<Stream<Object>> future = urlStream.collect(
+                    ParallelCollectors.parallel(
+                            url -> {
+                                logger.debug("Discovering certificate for {}", url);
+                                try {
+                                    processCertificatesForUrl(url, history.getId(), uniqueCerts, foundCertsCount);
+                                    successUrlCount.incrementAndGet();
+                                } catch (Exception e) {
+                                    logger.error("Unable to process data or URL {}: {}", url, e.getMessage());
+                                    failedUrlCount.incrementAndGet();
+                                }
+                                return null; // Return null to satisfy the return type
+                            },
+                            executor,
+                            maxThreads
+                    )
+            );
+
+            // Wait for all tasks to complete
+            future.join();
+        } catch (Exception e) {
+            logger.error("An error occurred during discovery: {}", e.getMessage());
+        } finally {
+            executor.shutdown();
         }
-        logger.info("Discovery {} has total of {} certificates from {} sources", request.getName(), allCerts.size(), urls.size());
+
+        logger.info("Discovery {} has total of {} certificates, {} unique, from {} sources", request.getName(), foundCertsCount.get(), uniqueCerts.size(), urls.size());
         history.setStatus(DiscoveryStatus.COMPLETED);
-        history.setMeta(AttributeDefinitionUtils.serialize(getDiscoveryMetadata(urls.size(), successUrls.size(), failedUrls.size())));
+        history.setMeta(AttributeDefinitionUtils.serialize(getDiscoveryMetadata(urls.size(), successUrlCount.get(), failedUrlCount.get())));
         discoveryHistoryService.setHistory(history);
         logger.info("Discovery Completed. Name of the discovery is {}", request.getName());
     }
 
-    private void createCertificateEntry(X509Certificate certificate, Long discoveryId, String discoverySource) {
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public void processCertificatesForUrl(String url, Long historyId, Set<String> uniqueCerts, AtomicInteger foundCertsCount) throws Exception {
+        ConnectionResponse connection = connectionService.getCertificates(url);
+        logger.debug("Connection to the url success. Certificates obtained");
+        X509Certificate[] certificates = connection.getCertificates();
+        for (X509Certificate certificate : certificates) {
+            String base64Content = Base64.getEncoder().encodeToString(certificate.getEncoded());
+            foundCertsCount.incrementAndGet(); // + to all certificates count
+            if (uniqueCerts.add(base64Content)) {
+                createCertificateEntry(certificate, historyId, url);
+            }
+        }
+    }
+
+    private void createCertificateEntry(X509Certificate certificate, Long discoveryId, String discoverySource) throws CertificateEncodingException {
         Certificate cert = new Certificate();
-        String base64Content = X509ObjectToString.toPem(certificate);
+        String base64Content = Base64.getEncoder().encodeToString(certificate.getEncoded());
         if (certificateRepository.findByDiscoveryIdAndBase64Content(discoveryId, base64Content).isEmpty()) {
             cert.setDiscoveryId(discoveryId);
             cert.setMeta(AttributeDefinitionUtils.serialize(getCertificateMetadata(discoverySource)));
