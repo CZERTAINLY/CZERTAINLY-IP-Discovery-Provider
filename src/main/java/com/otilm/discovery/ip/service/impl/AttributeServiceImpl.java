@@ -123,11 +123,6 @@ public class AttributeServiceImpl implements AttributeService {
         // so the controller answers a bad kind with 422 rather than falling through to a 500.
         validateKind(kind);
 
-        return getRunAttributes();
-    }
-
-    @Override
-    public List<BaseAttribute> getRunAttributes() {
         List<BaseAttribute> attributes = new ArrayList<>();
 
         attributes.add(createIpHostnameInfoAttribute());

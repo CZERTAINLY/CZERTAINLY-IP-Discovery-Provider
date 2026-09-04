@@ -6,7 +6,7 @@ import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.discovery.ip.ConnectorV2Api;
-import com.otilm.discovery.ip.service.AttributeService;
+import com.otilm.discovery.ip.service.v2.DiscoveryAttributeService;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.EnumSet;
@@ -23,9 +23,9 @@ public class DiscoveryMetadataControllerImpl implements DiscoveryMetadataControl
      */
     private static final Set<Resource> SUPPORTED = EnumSet.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY);
 
-    private final AttributeService attributeService;
+    private final DiscoveryAttributeService attributeService;
 
-    public DiscoveryMetadataControllerImpl(AttributeService attributeService) {
+    public DiscoveryMetadataControllerImpl(DiscoveryAttributeService attributeService) {
         this.attributeService = attributeService;
     }
 
@@ -36,7 +36,7 @@ public class DiscoveryMetadataControllerImpl implements DiscoveryMetadataControl
 
     @Override
     public List<BaseAttribute> listRunAttributes() {
-        return attributeService.getRunAttributes();
+        return attributeService.listRunAttributes();
     }
 
     /**

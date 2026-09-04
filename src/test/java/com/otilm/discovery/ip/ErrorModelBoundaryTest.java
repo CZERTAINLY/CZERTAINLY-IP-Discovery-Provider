@@ -75,7 +75,10 @@ class ErrorModelBoundaryTest {
         ResponseEntity<String> response = rest.getForEntity("/v2/discoveryProvider/attributes", String.class);
 
         Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
-        Assertions.assertTrue(response.getBody().contains("\"ip\""), response.getBody());
+        Assertions.assertTrue(response.getBody().contains("data_hosts"), response.getBody());
+        Assertions
+                .assertTrue(response.getBody().contains("\"version\":3"),
+                        "the schema must go out as v3, or Core reads it as v2 without complaint");
     }
 
     @Test

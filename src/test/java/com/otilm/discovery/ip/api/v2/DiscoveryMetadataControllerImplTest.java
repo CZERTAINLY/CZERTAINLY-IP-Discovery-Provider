@@ -3,18 +3,26 @@ package com.otilm.discovery.ip.api.v2;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.discovery.ip.service.impl.AttributeServiceImpl;
+import com.otilm.discovery.ip.service.v2.impl.DiscoveryAttributeServiceImpl;
+import org.springframework.boot.info.BuildProperties;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 class DiscoveryMetadataControllerImplTest {
 
     private final DiscoveryMetadataControllerImpl controller =
-            new DiscoveryMetadataControllerImpl(new AttributeServiceImpl());
+            new DiscoveryMetadataControllerImpl(new DiscoveryAttributeServiceImpl(buildProperties()));
+
+    private static BuildProperties buildProperties() {
+        Properties properties = new Properties();
+        properties.setProperty("version", "2.20.0-SNAPSHOT");
+        return new BuildProperties(properties);
+    }
 
     private Set<Resource> supported() {
         return controller
@@ -47,9 +55,9 @@ class DiscoveryMetadataControllerImplTest {
                 .assertTrue(
                         names
                                 .containsAll(List
-                                        .of(AttributeServiceImpl.DATA_ATTRIBUTE_DISCOVERY_IP_NAME,
-                                                AttributeServiceImpl.DATA_ATTRIBUTE_PORT_NAME,
-                                                AttributeServiceImpl.DATA_ATTRIBUTE_ALL_PORTS_NAME)),
+                                        .of(DiscoveryAttributeServiceImpl.DATA_ATTRIBUTE_HOSTS_NAME,
+                                                DiscoveryAttributeServiceImpl.DATA_ATTRIBUTE_PORTS_NAME,
+                                                DiscoveryAttributeServiceImpl.DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_NAME)),
                         "the run-level schema must carry the settings a scan needs: " + names);
     }
 
