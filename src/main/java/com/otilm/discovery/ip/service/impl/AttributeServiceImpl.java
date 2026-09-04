@@ -166,7 +166,7 @@ public class AttributeServiceImpl implements AttributeService {
                 and avoiding network issues.*
                 
                 By default, each URL is processed sequentially. The number of parallel executions can be increased
-                to improve the performance. The maximum number of parallel executions that can be set is `1000`.
+                to improve the performance. The maximum number of parallel executions that can be set is `100`.
                 """;
 
         attribute.setContent(List.of(new TextAttributeContentV2(content)));
