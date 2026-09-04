@@ -3,6 +3,7 @@ package com.otilm.discovery.ip.service.v2;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackRequestDto;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackResponseDto;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeDefinitionsDto;
+import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 
 import java.util.List;
@@ -27,4 +28,23 @@ public interface DiscoveryAttributeService {
     BaseAttribute getDefinition(UUID uuid);
 
     AttributeCallbackResponseDto callback(AttributeCallbackRequestDto request);
+
+    /**
+     * The hosts a run targets, one per entry, each already checked. Rejecting here rather than at the scan means a
+     * malformed entry is refused while the operator is still looking at the form.
+     *
+     * @throws com.otilm.api.exception.ValidationException naming the offending entry, or if no host was given
+     */
+    List<String> readHosts(List<RequestAttribute> attributes);
+
+    /**
+     * The ports a run probes on each host. An omitted or empty list means the default, which is what the v1 schema
+     * expressed as a preselected value and a list cannot.
+     *
+     * @throws com.otilm.api.exception.ValidationException naming the offending entry
+     */
+    List<String> readPorts(List<RequestAttribute> attributes);
+
+    /** @throws com.otilm.api.exception.ValidationException if outside the published range */
+    int readParallelExecutions(List<RequestAttribute> attributes);
 }

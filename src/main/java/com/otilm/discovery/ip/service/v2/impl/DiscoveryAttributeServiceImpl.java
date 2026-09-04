@@ -2,7 +2,9 @@ package com.otilm.discovery.ip.service.v2.impl;
 
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackRequestDto;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackResponseDto;
+import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeDefinitionsDto;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.constraint.BaseAttributeConstraint;
@@ -19,6 +21,8 @@ import com.otilm.api.model.common.attribute.v3.content.TextAttributeContentV3;
 import com.otilm.discovery.ip.api.v2.AttributeCallbackNotSupportedException;
 import com.otilm.discovery.ip.api.v2.AttributeDefinitionNotFoundException;
 import com.otilm.discovery.ip.service.v2.DiscoveryAttributeService;
+import com.otilm.discovery.ip.util.TargetEnumeration;
+import com.otilm.core.util.AttributeDefinitionUtils;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.stereotype.Service;
 
@@ -97,6 +101,75 @@ public class DiscoveryAttributeServiceImpl implements DiscoveryAttributeService 
     @Override
     public AttributeCallbackResponseDto callback(AttributeCallbackRequestDto request) {
         throw new AttributeCallbackNotSupportedException(request == null ? null : request.getAttributeName());
+    }
+
+    @Override
+    public List<String> readHosts(List<RequestAttribute> attributes) {
+        List<String> entries = entriesOf(DATA_ATTRIBUTE_HOSTS_NAME, attributes);
+        if (entries.isEmpty()) {
+            throw new ValidationException("At least one host is required");
+        }
+        entries.forEach(entry -> checked(DATA_ATTRIBUTE_HOSTS_NAME, entry,
+                () -> TargetEnumeration.validateHostSpec(entry)));
+        return entries;
+    }
+
+    @Override
+    public List<String> readPorts(List<RequestAttribute> attributes) {
+        List<String> entries = entriesOf(DATA_ATTRIBUTE_PORTS_NAME, attributes);
+        if (entries.isEmpty()) {
+            return List.of(DEFAULT_PORT);
+        }
+        entries.forEach(entry -> checked(DATA_ATTRIBUTE_PORTS_NAME, entry,
+                () -> TargetEnumeration.validatePortSpec(entry, false)));
+        return entries;
+    }
+
+    @Override
+    public int readParallelExecutions(List<RequestAttribute> attributes) {
+        List<IntegerAttributeContentV3> content = AttributeDefinitionUtils
+                .getAttributeContentValue(DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_NAME, attributes,
+                        IntegerAttributeContentV3.class);
+        if (content == null || content.isEmpty() || content.get(0).getData() == null) {
+            return PARALLEL_EXECUTIONS_MIN;
+        }
+
+        int requested = content.get(0).getData();
+        if (requested < PARALLEL_EXECUTIONS_MIN || requested > PARALLEL_EXECUTIONS_MAX) {
+            throw new ValidationException("Invalid value for parallel executions, it can be between "
+                    + PARALLEL_EXECUTIONS_MIN + " and " + PARALLEL_EXECUTIONS_MAX);
+        }
+        return requested;
+    }
+
+    /**
+     * Blank entries are dropped rather than rejected: a list widget leaves one behind when a row is cleared, and
+     * refusing the run for it would blame the operator for the widget.
+     */
+    private static List<String> entriesOf(String name, List<RequestAttribute> attributes) {
+        List<StringAttributeContentV3> content = AttributeDefinitionUtils
+                .getAttributeContentValue(name, attributes, StringAttributeContentV3.class);
+        if (content == null) {
+            return List.of();
+        }
+        return content
+                .stream()
+                .map(StringAttributeContentV3::getData)
+                .filter(data -> data != null && !data.isBlank())
+                .map(String::trim)
+                .toList();
+    }
+
+    /**
+     * The whole point of a list schema: the rejection names the entry that is wrong. A comma-separated string could
+     * only say the value was bad, leaving the operator to find which part of it.
+     */
+    private static void checked(String name, String entry, Runnable validation) {
+        try {
+            validation.run();
+        } catch (ValidationException | IllegalArgumentException e) {
+            throw new ValidationException(name + " entry \"" + entry + "\" is not valid: " + e.getMessage());
+        }
     }
 
     private static UUID uuidOf(BaseAttribute definition) {

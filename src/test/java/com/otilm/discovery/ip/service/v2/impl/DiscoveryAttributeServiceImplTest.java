@@ -1,6 +1,13 @@
 package com.otilm.discovery.ip.service.v2.impl;
 
+import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackRequestDto;
+import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
+import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.IntegerAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.DataAttribute;
@@ -203,5 +210,117 @@ class DiscoveryAttributeServiceImplTest {
         Assertions
                 .assertTrue(thrown.getMessage().contains(DiscoveryAttributeServiceImpl.DATA_ATTRIBUTE_HOSTS_NAME),
                         thrown.getMessage());
+    }
+
+    // --- reading a run's values ---
+
+    private static RequestAttributeV3 request(String uuid, String name, AttributeContentType type,
+            List<BaseAttributeContentV3<?>> content) {
+        RequestAttributeV3 attribute = new RequestAttributeV3();
+        attribute.setUuid(UUID.fromString(uuid));
+        attribute.setName(name);
+        attribute.setContentType(type);
+        attribute.setContent(content);
+        return attribute;
+    }
+
+    private static RequestAttribute hosts(String... entries) {
+        return request(DiscoveryAttributeServiceImpl.DATA_ATTRIBUTE_HOSTS_UUID,
+                DiscoveryAttributeServiceImpl.DATA_ATTRIBUTE_HOSTS_NAME, AttributeContentType.STRING,
+                java.util.Arrays.stream(entries).<BaseAttributeContentV3<?>>map(StringAttributeContentV3::new).toList());
+    }
+
+    private static RequestAttribute ports(String... entries) {
+        return request(DiscoveryAttributeServiceImpl.DATA_ATTRIBUTE_PORTS_UUID,
+                DiscoveryAttributeServiceImpl.DATA_ATTRIBUTE_PORTS_NAME, AttributeContentType.STRING,
+                java.util.Arrays.stream(entries).<BaseAttributeContentV3<?>>map(StringAttributeContentV3::new).toList());
+    }
+
+    private static RequestAttribute parallelism(int value) {
+        return request(DiscoveryAttributeServiceImpl.DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_UUID,
+                DiscoveryAttributeServiceImpl.DATA_ATTRIBUTE_PARALLEL_EXECUTIONS_NAME, AttributeContentType.INTEGER,
+                List.of(new IntegerAttributeContentV3(value)));
+    }
+
+    @Test
+    void readsEachHostEntryAsItsOwnTarget() {
+        List<String> read = attributeService
+                .readHosts(List.of(hosts("10.0.0.1", "www.example.com", "10.1.1.20-10.1.1.150", "172.16.1.0/24")));
+
+        Assertions.assertEquals(List.of("10.0.0.1", "www.example.com", "10.1.1.20-10.1.1.150", "172.16.1.0/24"), read);
+    }
+
+    @Test
+    void refusesARunWithNoHosts() {
+        Assertions.assertThrows(ValidationException.class, () -> attributeService.readHosts(List.of(ports("443"))));
+        Assertions.assertThrows(ValidationException.class, () -> attributeService.readHosts(List.of(hosts())));
+    }
+
+    /**
+     * The reason the schema became a list: a comma-separated value could only report that it was bad, leaving the
+     * operator to find which part.
+     */
+    @Test
+    void namesTheHostEntryThatIsWrongRatherThanTheWholeValue() {
+        ValidationException thrown = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> attributeService.readHosts(List.of(hosts("10.0.0.1", "10.0.0.999", "10.0.0.3"))));
+
+        Assertions.assertTrue(thrown.getMessage().contains("10.0.0.999"), thrown.getMessage());
+        Assertions
+                .assertFalse(thrown.getMessage().contains("10.0.0.3"),
+                        "only the offending entry belongs in the message: " + thrown.getMessage());
+    }
+
+    @Test
+    void namesThePortEntryThatIsWrong() {
+        ValidationException thrown = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> attributeService.readPorts(List.of(ports("443", "443-80"))));
+
+        Assertions.assertTrue(thrown.getMessage().contains("443-80"), thrown.getMessage());
+    }
+
+    /** A list carries no preselected value, so the default v1 published in its content lives here instead. */
+    @Test
+    void scansTheDefaultPortWhenNoneIsGiven() {
+        Assertions
+                .assertEquals(List.of(DiscoveryAttributeServiceImpl.DEFAULT_PORT),
+                        attributeService.readPorts(List.of(hosts("10.0.0.1"))));
+        Assertions
+                .assertEquals(List.of(DiscoveryAttributeServiceImpl.DEFAULT_PORT),
+                        attributeService.readPorts(List.of(ports())));
+    }
+
+    /** The suggestions are offered, not enforced, so a port outside them is a legitimate scan. */
+    @Test
+    void acceptsAPortOutsideTheSuggestions() {
+        Assertions.assertEquals(List.of("9443"), attributeService.readPorts(List.of(ports("9443"))));
+    }
+
+    /** A cleared row in a list widget leaves an empty entry behind; that is the widget, not a bad request. */
+    @Test
+    void ignoresBlankEntries() {
+        Assertions.assertEquals(List.of("10.0.0.1"), attributeService.readHosts(List.of(hosts("10.0.0.1", "  ", ""))));
+    }
+
+    @Test
+    void readsTheParallelismAndDefaultsToSingleThreaded() {
+        Assertions.assertEquals(25, attributeService.readParallelExecutions(List.of(parallelism(25))));
+        Assertions
+                .assertEquals(DiscoveryAttributeServiceImpl.PARALLEL_EXECUTIONS_MIN,
+                        attributeService.readParallelExecutions(List.of(hosts("10.0.0.1"))));
+    }
+
+    @Test
+    void refusesAParallelismOutsideThePublishedRange() {
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> attributeService.readParallelExecutions(List.of(parallelism(0))));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> attributeService
+                                .readParallelExecutions(List
+                                        .of(parallelism(DiscoveryAttributeServiceImpl.PARALLEL_EXECUTIONS_MAX + 1))));
     }
 }
