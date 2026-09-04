@@ -17,6 +17,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.stream.Collectors;
@@ -63,6 +64,21 @@ public class ProblemDetailsHandlingAdvice extends ResponseEntityExceptionHandler
         // than a fault, so it must not fall through to the catch-all and become a 500.
         LOG.error("Invalid argument: {}", ex.getMessage(), ex);
         return ProblemDetailExtended.fromErrorCode(ErrorCode.VALIDATION_FAILED, ex.getMessage(), null, null);
+    }
+
+    /**
+     * A path variable that will not convert — a resource code naming no resource. Spring resolves this one itself,
+     * into a 400 carrying its own default body, so without a handler here a v2 caller gets a third error shape from
+     * a surface that promises problem+json. It answers 422 like every other rejected argument: the request reached
+     * the right route and named something that does not exist, which is the same failure as asking for a resource
+     * this connector does not discover.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleUnconvertibleArgument(MethodArgumentTypeMismatchException ex) {
+        LOG.error("Invalid path variable {}: {}", ex.getName(), ex.getMessage(), ex);
+        // The cause carries the converter's own message, which names the value and the enum it failed to match.
+        String detail = ex.getMostSpecificCause().getMessage();
+        return ProblemDetailExtended.fromErrorCode(ErrorCode.VALIDATION_FAILED, detail, null, null);
     }
 
     @ExceptionHandler(NotFoundException.class)

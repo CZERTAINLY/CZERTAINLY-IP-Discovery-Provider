@@ -119,11 +119,16 @@ public class AttributeServiceImpl implements AttributeService {
     public List<BaseAttribute> getAttributes(String kind) {
         logger.debug("Getting the attributes for {}", kind);
 
-        List<BaseAttribute> attributes = new ArrayList<>();
-
         // Rejects an unknown kind with ValidationException, the same way validateAttributes does,
         // so the controller answers a bad kind with 422 rather than falling through to a 500.
         validateKind(kind);
+
+        return getRunAttributes();
+    }
+
+    @Override
+    public List<BaseAttribute> getRunAttributes() {
+        List<BaseAttribute> attributes = new ArrayList<>();
 
         attributes.add(createIpHostnameInfoAttribute());
         attributes.add(createDiscoveryIpDataAttribute());
