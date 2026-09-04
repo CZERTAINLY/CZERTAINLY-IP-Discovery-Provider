@@ -4,6 +4,8 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.error.ErrorCode;
 import com.otilm.api.model.common.error.ProblemDetailExtended;
+import com.otilm.discovery.ip.api.v2.AttributeCallbackNotSupportedException;
+import com.otilm.discovery.ip.api.v2.AttributeDefinitionNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
@@ -79,6 +81,19 @@ public class ProblemDetailsHandlingAdvice extends ResponseEntityExceptionHandler
         // The cause carries the converter's own message, which names the value and the enum it failed to match.
         String detail = ex.getMostSpecificCause().getMessage();
         return ProblemDetailExtended.fromErrorCode(ErrorCode.VALIDATION_FAILED, detail, null, null);
+    }
+
+    @ExceptionHandler(AttributeDefinitionNotFoundException.class)
+    public ProblemDetail handleAttributeDefinitionNotFound(AttributeDefinitionNotFoundException ex) {
+        LOG.error("Attribute definition not found: {}", ex.getMessage(), ex);
+        return ProblemDetailExtended
+                .fromErrorCode(ErrorCode.ATTRIBUTE_DEFINITION_NOT_FOUND, ex.getMessage(), null, null);
+    }
+
+    @ExceptionHandler(AttributeCallbackNotSupportedException.class)
+    public ProblemDetail handleAttributeCallbackNotSupported(AttributeCallbackNotSupportedException ex) {
+        LOG.error("Attribute callback not supported: {}", ex.getMessage(), ex);
+        return ProblemDetailExtended.fromErrorCode(ErrorCode.VALIDATION_FAILED, ex.getMessage(), null, null);
     }
 
     @ExceptionHandler(NotFoundException.class)
