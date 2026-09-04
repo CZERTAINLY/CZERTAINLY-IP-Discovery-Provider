@@ -4,6 +4,7 @@ import com.otilm.api.interfaces.connector.common.v2.InfoController;
 import com.otilm.api.model.client.connector.v2.ConnectorInfo;
 import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import com.otilm.api.model.client.connector.v2.ConnectorInterfaceInfo;
+import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.client.connector.v2.InfoResponse;
 import com.otilm.discovery.ip.Application;
 import com.otilm.discovery.ip.ConnectorV2Api;
@@ -39,7 +40,7 @@ public class InfoControllerImpl implements InfoController {
 
         InfoResponse response = new InfoResponse();
         response.setConnector(connector);
-        response.setInterfaces(List.of(declare(ConnectorInterface.INFO), declare(ConnectorInterface.HEALTH),
+        response.setInterfaces(List.of(declare(ConnectorInterface.INFO), declare(ConnectorInterface.HEALTH), metrics(),
                 // No feature flags yet. discoveryStopResume waits on the run engine that can honour a stop, and
                 // discoveryStreaming stays unadvertised: Core has no stream client, so the flag would promise a
                 // path nothing uses. Declaring either before it works is a contract violation, not an intention.
@@ -51,6 +52,19 @@ public class InfoControllerImpl implements InfoController {
         ConnectorInterfaceInfo info = new ConnectorInterfaceInfo();
         info.setCode(code);
         info.setVersion("v2");
+        return info;
+    }
+
+    /**
+     * Metrics is declared at {@code v1}, not {@code v2}: {@code MetricsController} maps to {@code /v1/metrics} and
+     * {@code METRICS_CONFIG} carries {@code version=1}, so the metrics API is versioned independently of the connector
+     * interface that hosts it. The other connectors on the v2 surface declare it the same way.
+     */
+    private static ConnectorInterfaceInfo metrics() {
+        ConnectorInterfaceInfo info = new ConnectorInterfaceInfo();
+        info.setCode(ConnectorInterface.METRICS);
+        info.setVersion("v1");
+        info.setFeatures(List.of(FeatureFlag.OPEN_METRICS));
         return info;
     }
 }
