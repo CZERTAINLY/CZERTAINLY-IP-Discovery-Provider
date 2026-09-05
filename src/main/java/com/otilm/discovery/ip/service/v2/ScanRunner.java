@@ -1,0 +1,231 @@
+package com.otilm.discovery.ip.service.v2;
+
+import com.otilm.api.model.connector.discovery.v2.DiscoveredCertificateDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveredItemDto;
+import com.otilm.api.model.core.auth.Resource;
+import com.otilm.discovery.ip.dto.ConnectionResponse;
+import com.otilm.discovery.ip.service.ConnectionService;
+import com.otilm.discovery.ip.util.TargetEnumeration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * One run's scan: targets in chunks, results into the buffer, position into the handle.
+ *
+ * <p>
+ * The cursor advances only at a chunk boundary, and a stop interrupts the chunk in flight rather than waiting for it.
+ * A quiesce would have no bound to wait for — under backpressure the chunk proceeds at Core's drain cadence, or not
+ * at all while the platform is unreachable, which is exactly the situation an operator reaches for stop in.
+ *
+ * <p>
+ * Resume therefore re-scans the interrupted chunk. That is contract-legal: the duplicates collapse on
+ * {@code uniqueRef}, at the cost of inflating {@code highestSequence} slightly against the true item count. That is
+ * the price of a stop that returns.
+ */
+public class ScanRunner {
+
+    private static final Logger logger = LoggerFactory.getLogger(ScanRunner.class);
+
+    /** Small enough that a stop discards little work, large enough that the handle is not rewritten per target. */
+    static final int CHUNK_SIZE = 256;
+
+    private final UUID runId;
+    private final TargetEnumeration targets;
+    private final ResultBuffer buffer;
+    private final RunRegistry registry;
+    private final ConnectionService connectionService;
+    private final int parallelism;
+    private final int chunkSize;
+
+    private final AtomicBoolean stopping = new AtomicBoolean();
+    private final List<Future<?>> inFlight = new ArrayList<>();
+
+    public ScanRunner(UUID runId, TargetEnumeration targets, ResultBuffer buffer, RunRegistry registry,
+            ConnectionService connectionService, int parallelism) {
+        this(runId, targets, buffer, registry, connectionService, parallelism, CHUNK_SIZE);
+    }
+
+    ScanRunner(UUID runId, TargetEnumeration targets, ResultBuffer buffer, RunRegistry registry,
+            ConnectionService connectionService, int parallelism, int chunkSize) {
+        this.runId = runId;
+        this.targets = targets;
+        this.buffer = buffer;
+        this.registry = registry;
+        this.connectionService = connectionService;
+        this.parallelism = parallelism;
+        this.chunkSize = chunkSize;
+    }
+
+    /**
+     * Scans from the handle's cursor to the end of the enumeration, or until stopped. Blocking: the caller decides
+     * which thread carries it.
+     *
+     * @return true if the enumeration was exhausted, false if a stop ended it early
+     */
+    public boolean scan() {
+        long cursor = registry.find(runId).map(RunHandle::cursorIndex).orElse(0L);
+        Semaphore concurrency = new Semaphore(parallelism);
+
+        try (ExecutorService probes = Executors.newVirtualThreadPerTaskExecutor()) {
+            while (cursor < targets.size()) {
+                if (stopping.get()) {
+                    return false;
+                }
+                long chunkEnd = Math.min(cursor + chunkSize, targets.size());
+                ChunkTally tally = runChunk(probes, concurrency, cursor, chunkEnd);
+                if (tally == null) {
+                    // Interrupted mid-chunk. The cursor stays at the boundary, so resume re-scans this chunk; the
+                    // items already buffered from it are duplicates Core collapses on uniqueRef.
+                    return false;
+                }
+                cursor = chunkEnd;
+                commit(cursor, tally);
+            }
+        }
+        return true;
+    }
+
+    /** Interrupts whatever is in flight. The probes are on virtual threads, where a socket read does unblock. */
+    public void stop() {
+        stopping.set(true);
+        cancelInFlight();
+    }
+
+    private void cancelInFlight() {
+        synchronized (inFlight) {
+            inFlight.forEach(future -> future.cancel(true));
+        }
+    }
+
+    public boolean isStopping() {
+        return stopping.get();
+    }
+
+    /** @return the chunk's tally, or null if a stop interrupted it before every probe finished */
+    private ChunkTally runChunk(ExecutorService probes, Semaphore concurrency, long from, long to) {
+        ChunkTally tally = new ChunkTally();
+        List<Future<?>> futures = new ArrayList<>();
+        synchronized (inFlight) {
+            inFlight.clear();
+        }
+        for (long index = from; index < to; index++) {
+            String url = targets.target(index);
+            Future<?> future = probes.submit(() -> probe(url, concurrency, tally));
+            futures.add(future);
+            // Published one at a time rather than after the loop: a stop arriving mid-submission would otherwise
+            // find nothing to cancel and wait out the whole chunk it was meant to cut through.
+            synchronized (inFlight) {
+                inFlight.add(future);
+            }
+        }
+        if (stopping.get()) {
+            // Lost the race the other way: stop ran before these were submitted, so it cancelled an empty list.
+            cancelInFlight();
+        }
+
+        boolean complete = true;
+        for (Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (java.util.concurrent.CancellationException e) {
+                complete = false;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            } catch (java.util.concurrent.ExecutionException e) {
+                // A probe that threw has already been counted as failed; the run continues.
+                logger.debug("Probe in run {} ended with {}", runId, e.getCause().toString());
+            }
+        }
+        return complete && !stopping.get() ? tally : null;
+    }
+
+    private void probe(String url, Semaphore concurrency, ChunkTally tally) {
+        try {
+            concurrency.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+        }
+        try {
+            ConnectionResponse response = connectionService.getCertificates(url);
+            for (X509Certificate certificate : response.getCertificates()) {
+                buffer.add(certificateItem(certificate), weightOf(certificate));
+                tally.yield.computeIfAbsent(Resource.CERTIFICATE.getCode(), key -> new AtomicLong()).incrementAndGet();
+            }
+            tally.processed.incrementAndGet();
+        } catch (InterruptedException e) {
+            // A stop reaches a probe parked on backpressure exactly here. Nothing is counted: the cursor has not
+            // advanced past this chunk, so the target is scanned again on resume.
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            logger.debug("Probe of {} in run {} failed: {}", url, runId, e.getMessage());
+            tally.processed.incrementAndGet();
+            tally.failed.incrementAndGet();
+        } finally {
+            concurrency.release();
+        }
+    }
+
+    /**
+     * Writes the chunk's work into the handle in one step, at the boundary. Counting per target instead would
+     * double-count the interrupted chunk when a resumed run scans it again.
+     */
+    private void commit(long cursor, ChunkTally tally) {
+        registry
+                .update(runId, handle -> {
+                    Map<String, Long> yield = new HashMap<>(handle.yieldByResource());
+                    tally.yield.forEach((resource, count) -> yield.merge(resource, count.get(), Long::sum));
+                    return new RunHandle(handle.state(), cursor, buffer.highestSequence(), handle.targetsDigest(),
+                            handle.targetsProcessed() + tally.processed.get(),
+                            handle.targetsFailed() + tally.failed.get(), Map.copyOf(yield));
+                });
+    }
+
+    private static DiscoveredItemDto certificateItem(X509Certificate certificate) throws CertificateEncodingException,
+            NoSuchAlgorithmException {
+        byte[] der = certificate.getEncoded();
+
+        DiscoveredCertificateDto payload = new DiscoveredCertificateDto();
+        payload.setCertificateData(Base64.getEncoder().encodeToString(der));
+
+        DiscoveredItemDto item = new DiscoveredItemDto();
+        item.setUniqueRef(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(der)));
+        item.setPayload(payload);
+        item.setDiscoveredAt(OffsetDateTime.now());
+        return item;
+    }
+
+    /**
+     * The buffer takes the weight rather than measuring it, and this is the caller that owes it a truthful number.
+     * The DER dominates: base64 inflates it by a third, and the rest of the item is a digest, a timestamp and an enum.
+     */
+    private static long weightOf(X509Certificate certificate) throws CertificateEncodingException {
+        return (certificate.getEncoded().length * 4L / 3) + 512;
+    }
+
+    private static final class ChunkTally {
+        private final AtomicLong processed = new AtomicLong();
+        private final AtomicLong failed = new AtomicLong();
+        private final Map<String, AtomicLong> yield = new java.util.concurrent.ConcurrentHashMap<>();
+    }
+}
