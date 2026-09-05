@@ -3,11 +3,13 @@ package com.otilm.discovery.ip.service.v2;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
@@ -94,5 +96,83 @@ class RunRegistryTest {
         }
 
         Assertions.assertEquals(advances, registry.find(runId).orElseThrow().cursorIndex());
+    }
+
+    // --- abandoning runs the platform stopped driving ---
+
+    /** A movable clock: the deadline is measured in elapsed time, and the test should not have to wait it out. */
+    private static final class Ticker implements java.util.function.LongSupplier {
+        private final AtomicLong nanos = new AtomicLong();
+
+        @Override
+        public long getAsLong() {
+            return nanos.get();
+        }
+
+        void advance(Duration by) {
+            nanos.addAndGet(by.toNanos());
+        }
+    }
+
+    @Test
+    void abandonsARunThePlatformHasStoppedDriving() {
+        Ticker ticker = new Ticker();
+        RunRegistry registry = new RunRegistry(ticker);
+        UUID runId = UUID.randomUUID();
+        registry.register(runId, handle(0));
+
+        ticker.advance(Duration.ofMinutes(31));
+        List<UUID> abandoned = registry.abandonIdle(Duration.ofMinutes(30));
+
+        Assertions.assertEquals(List.of(runId), abandoned);
+        Assertions.assertEquals(0, registry.size());
+    }
+
+    /**
+     * The deadline measures neglect, not duration. A wall-clock limit would kill a legitimate long scan, which is the
+     * failure mode this connector is most likely to hit — a wide subnet takes hours.
+     */
+    @Test
+    void keepsALongRunningScanThePlatformIsStillDriving() {
+        Ticker ticker = new Ticker();
+        RunRegistry registry = new RunRegistry(ticker);
+        UUID runId = UUID.randomUUID();
+        registry.register(runId, handle(0));
+
+        for (int hour = 0; hour < 6; hour++) {
+            ticker.advance(Duration.ofMinutes(20));
+            registry.touch(runId);
+            Assertions.assertEquals(List.of(), registry.abandonIdle(Duration.ofMinutes(30)));
+        }
+
+        Assertions.assertEquals(1, registry.size(), "a run being driven must survive however long it takes");
+    }
+
+    /** Abandoning has to release the scan, or the threads outlive the run that owned them. */
+    @Test
+    void stopsTheScanOfAnAbandonedRun() {
+        Ticker ticker = new Ticker();
+        RunRegistry registry = new RunRegistry(ticker);
+        UUID runId = UUID.randomUUID();
+        registry.register(runId, handle(0));
+        ScanRunner runner = new ScanRunner(runId, com.otilm.discovery.ip.util.TargetEnumeration
+                .of("10.0.0.1", "443", false), null, registry, null, 1);
+        registry.attach(runId, runner);
+
+        ticker.advance(Duration.ofHours(1));
+        registry.abandonIdle(Duration.ofMinutes(30));
+
+        Assertions.assertTrue(runner.isStopping(), "the abandoned run's scan should have been told to stop");
+    }
+
+    @Test
+    void abandonsNothingBeforeTheDeadline() {
+        Ticker ticker = new Ticker();
+        RunRegistry registry = new RunRegistry(ticker);
+        registry.register(UUID.randomUUID(), handle(0));
+
+        ticker.advance(Duration.ofMinutes(29));
+
+        Assertions.assertEquals(List.of(), registry.abandonIdle(Duration.ofMinutes(30)));
     }
 }

@@ -1,12 +1,19 @@
 package com.otilm.discovery.ip.service.v2;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 import java.util.function.UnaryOperator;
 
 /**
@@ -20,18 +27,60 @@ import java.util.function.UnaryOperator;
 @Component
 public class RunRegistry {
 
-    private final Map<UUID, AtomicReference<RunHandle>> runs = new ConcurrentHashMap<>();
+    private static final Logger logger = LoggerFactory.getLogger(RunRegistry.class);
+
+    private final Map<UUID, Entry> runs = new ConcurrentHashMap<>();
+    private final LongSupplier ticker;
+
+    public RunRegistry() {
+        this(System::nanoTime);
+    }
+
+    RunRegistry(LongSupplier ticker) {
+        this.ticker = ticker;
+    }
+
+    private static final class Entry {
+        private final AtomicReference<RunHandle> handle;
+        private final AtomicReference<ScanRunner> runner = new AtomicReference<>();
+        private final AtomicLong lastDriven;
+
+        private Entry(RunHandle handle, long now) {
+            this.handle = new AtomicReference<>(handle);
+            this.lastDriven = new AtomicLong(now);
+        }
+    }
 
     /**
      * @return false if the run is already registered, which is a repeated initiate rather than a new run
      */
     public boolean register(UUID runId, RunHandle handle) {
-        return runs.putIfAbsent(runId, new AtomicReference<>(handle)) == null;
+        return runs.putIfAbsent(runId, new Entry(handle, ticker.getAsLong())) == null;
+    }
+
+    /** Gives the registry the means to stop a run it later has to abandon. */
+    public void attach(UUID runId, ScanRunner runner) {
+        Entry entry = runs.get(runId);
+        if (entry != null) {
+            entry.runner.set(runner);
+        }
+    }
+
+    /**
+     * Records that the platform is still driving this run. Every lifecycle call does this, which is what makes the
+     * deadline measure neglect rather than duration — a wall-clock limit would kill a legitimate long scan, and a
+     * limit on scan time alone would misfire during a Core outage in the opposite direction.
+     */
+    public void touch(UUID runId) {
+        Entry entry = runs.get(runId);
+        if (entry != null) {
+            entry.lastDriven.set(ticker.getAsLong());
+        }
     }
 
     public Optional<RunHandle> find(UUID runId) {
-        AtomicReference<RunHandle> held = runs.get(runId);
-        return held == null ? Optional.empty() : Optional.of(held.get());
+        Entry entry = runs.get(runId);
+        return entry == null ? Optional.empty() : Optional.of(entry.handle.get());
     }
 
     /**
@@ -41,8 +90,8 @@ public class RunRegistry {
      * @return the handle after the change, or empty if the run is not held here
      */
     public Optional<RunHandle> update(UUID runId, UnaryOperator<RunHandle> change) {
-        AtomicReference<RunHandle> held = runs.get(runId);
-        return held == null ? Optional.empty() : Optional.of(held.updateAndGet(change));
+        Entry entry = runs.get(runId);
+        return entry == null ? Optional.empty() : Optional.of(entry.handle.updateAndGet(change));
     }
 
     /**
@@ -54,5 +103,37 @@ public class RunRegistry {
 
     public int size() {
         return runs.size();
+    }
+
+    /**
+     * Drops every run the platform has stopped driving for longer than {@code idleFor}, stopping its scan first.
+     *
+     * <p>
+     * Core is not guaranteed to clean up after itself: a start that fails after initiate succeeded calls cancel
+     * best-effort and logs that the scan may keep running until the connector's own timeout. This is that timeout.
+     *
+     * @return the runs abandoned, for the caller to log and release
+     */
+    public List<UUID> abandonIdle(Duration idleFor) {
+        long cutoff = ticker.getAsLong() - idleFor.toNanos();
+        List<UUID> abandoned = new ArrayList<>();
+        for (Map.Entry<UUID, Entry> run : runs.entrySet()) {
+            if (run.getValue().lastDriven.get() > cutoff) {
+                continue;
+            }
+            // Remove first: a lifecycle call arriving now finds nothing and is answered as a forgotten run, which is
+            // the contract's expected answer, rather than reaching a scan that is being torn down underneath it.
+            if (runs.remove(run.getKey(), run.getValue())) {
+                ScanRunner runner = run.getValue().runner.get();
+                if (runner != null) {
+                    runner.stop();
+                }
+                abandoned.add(run.getKey());
+                logger
+                        .warn("Run {} abandoned after {} without a lifecycle call from the platform", run.getKey(),
+                                idleFor);
+            }
+        }
+        return abandoned;
     }
 }
