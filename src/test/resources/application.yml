@@ -1,4 +1,13 @@
 discovery:
+  buffer:
+    # The undrained results of the live runs on this node. Production blocks when a bound is reached rather than
+    # dropping items, which is safe because Core drains from initiate onward; a wait longer than
+    # backpressure-wait-ms fails the run naming the bound it hit. All must be positive.
+    max-runs: ${DISCOVERY_BUFFER_MAX_RUNS:8}
+    max-items-per-run: ${DISCOVERY_BUFFER_MAX_ITEMS_PER_RUN:50000}
+    max-bytes-per-run: ${DISCOVERY_BUFFER_MAX_BYTES_PER_RUN:134217728}
+    max-total-bytes: ${DISCOVERY_BUFFER_MAX_TOTAL_BYTES:536870912}
+    backpressure-wait-ms: ${DISCOVERY_BUFFER_BACKPRESSURE_WAIT_MS:120000}
   portOptions: No, Yes
   supportedTypes: IP, Range, Subnet
 server:
