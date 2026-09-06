@@ -4,6 +4,8 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryDrainRequestDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryInitiateRequestDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryInitiateResponseDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryProgressDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryResourceProgressDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryRunRequestDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryRunState;
@@ -21,7 +23,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -107,8 +111,7 @@ public class DiscoveryRunService {
         DiscoveryStatusResponseDto response = new DiscoveryStatusResponseDto();
         response.setState(registry.state(runId).orElse(DiscoveryRunState.RUNNING));
         response.setHighestSequence(registry.buffer(runId).map(ResultBuffer::highestSequence).orElse(0L));
-        // Progress is deliberately absent until there is something to report: Core keeps the last progress it was
-        // given, and cannot tell an empty object from an omitted one.
+        response.setProgress(progressOf(runId));
         return response;
     }
 
@@ -226,6 +229,8 @@ public class DiscoveryRunService {
         // A rebuilt run holds no items: whatever it had was in memory this node no longer has. The buffer exists so
         // a resume numbers from where the checkpoint left off rather than from one.
         registry.attach(runId, null, new ResultBuffer(runId, budget, handle.sequenceHighWater()));
+        // The enumeration is rebuilt from the same replayed request, so a rebuilt run reports a total like any other.
+        registry.setTargetsTotal(runId, enumerate(request).size());
         logger.info("Rebuilt stopped run {} from its replayed checkpoint at cursor {}", runId, handle.cursorIndex());
         return handle;
     }
@@ -266,8 +271,49 @@ public class DiscoveryRunService {
         }
     }
 
+    /**
+     * Work in targets, yield in items, and nothing at all when there is nothing to say.
+     *
+     * <p>
+     * The whole object is omitted rather than sent with every field absent. Core keeps the last progress it was
+     * given and cannot tell an empty report from a missing one, so an all-null object would overwrite a real
+     * measurement with silence.
+     */
+    private DiscoveryProgressDto progressOf(UUID runId) {
+        RunHandle handle = registry.find(runId).orElseThrow(() -> new UnknownRunException(runId));
+        Long total = registry.targetsTotal(runId).orElse(null);
+        Map<String, Long> yield = handle.yieldByResource();
+
+        if (total == null && handle.targetsProcessed() == 0 && yield.isEmpty()) {
+            return null;
+        }
+
+        DiscoveryProgressDto progress = new DiscoveryProgressDto();
+        progress.setTargetsTotal(total);
+        progress.setTargetsProcessed(handle.targetsProcessed());
+        // Counted within processed rather than beside it, so an all-failed sweep still reaches 100 per cent. A run
+        // that reached every target and found nothing listening is complete, not degraded.
+        progress.setTargetsFailed(handle.targetsFailed());
+        // Named only when it explains a run that looks stalled; a phase on a healthy run is noise Core would keep.
+        progress.setPhase(budget.isBackpressured() ? "backpressured" : null);
+
+        if (!yield.isEmpty()) {
+            Map<Resource, DiscoveryResourceProgressDto> byResource = new LinkedHashMap<>();
+            yield.forEach((code, items) -> {
+                DiscoveryResourceProgressDto resourceProgress = new DiscoveryResourceProgressDto();
+                resourceProgress.setProcessed(items);
+                // No estimate: one target yields anywhere from no items to a whole chain, so any total would be a
+                // guess Core would render as a percentage.
+                byResource.put(Resource.findByCode(code), resourceProgress);
+            });
+            progress.setByResource(byResource);
+        }
+        return progress;
+    }
+
     private void start(UUID runId, TargetEnumeration targets, RunHandle handle, int parallelism,
             List<Resource> resources) {
+        registry.setTargetsTotal(runId, targets.size());
         ResultBuffer buffer = new ResultBuffer(runId, budget, handle.sequenceHighWater());
         ScanRunner runner = new ScanRunner(runId, targets, buffer, registry, connectionService, parallelism,
                 EnumSet.copyOf(resources));

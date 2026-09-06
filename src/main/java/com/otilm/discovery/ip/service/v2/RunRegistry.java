@@ -47,6 +47,8 @@ public class RunRegistry {
         private final AtomicReference<ResultBuffer> buffer = new AtomicReference<>();
         private final AtomicReference<DiscoveryRunState> state = new AtomicReference<>(DiscoveryRunState.RUNNING);
         private final AtomicLong lastDriven;
+        /** Zero means not yet known, which is why it is reported as absent rather than as a total of nought. */
+        private final AtomicLong targetsTotal = new AtomicLong();
 
         private Entry(RunHandle handle, long now) {
             this.handle = new AtomicReference<>(handle);
@@ -99,6 +101,25 @@ public class RunRegistry {
         Entry entry = runs.get(runId);
         if (entry != null) {
             entry.state.set(state);
+        }
+    }
+
+    /**
+     * The size of the run's enumeration, exact from the moment it is known. Absent rather than zero when it is not:
+     * a total of nought would read as a finished run rather than an unknown one.
+     */
+    public Optional<Long> targetsTotal(UUID runId) {
+        Entry entry = runs.get(runId);
+        if (entry == null || entry.targetsTotal.get() <= 0) {
+            return Optional.empty();
+        }
+        return Optional.of(entry.targetsTotal.get());
+    }
+
+    public void setTargetsTotal(UUID runId, long total) {
+        Entry entry = runs.get(runId);
+        if (entry != null) {
+            entry.targetsTotal.set(total);
         }
     }
 

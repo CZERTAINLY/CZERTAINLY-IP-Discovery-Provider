@@ -214,7 +214,6 @@ class DiscoveryRunServiceTest {
 
         Assertions.assertEquals(DiscoveryRunState.COMPLETED, status.getState());
         Assertions.assertEquals(4L, status.getHighestSequence());
-        Assertions.assertNull(status.getProgress(), "progress is omitted rather than sent empty");
     }
 
     @Test
@@ -330,5 +329,71 @@ class DiscoveryRunServiceTest {
         service.status(runRequest(runId));
 
         Assertions.assertEquals(List.of(), registry.abandonIdle(Duration.ofMinutes(30)));
+    }
+
+    // --- progress ---
+
+    @Test
+    void reportsWorkInTargetsAndYieldInItems() {
+        UUID runId = UUID.randomUUID();
+        service.initiate(initiateRequest(runId, "10.0.0.1-10.0.0.4"));
+        awaitCompletion(runId);
+
+        var progress = service.status(runRequest(runId)).getProgress();
+
+        Assertions.assertEquals(4L, progress.getTargetsTotal(), "the total is exact from initiate");
+        Assertions.assertEquals(4L, progress.getTargetsProcessed());
+        Assertions.assertEquals(0L, progress.getTargetsFailed());
+        Assertions
+                .assertEquals(4L, progress.getByResource().get(Resource.CERTIFICATE).getProcessed(),
+                        "yield is counted in items, which is a different unit from the work counters");
+        Assertions
+                .assertNull(progress.getByResource().get(Resource.CERTIFICATE).getTotalEstimate(),
+                        "one target yields anywhere from nothing to a whole chain, so an estimate would be a guess");
+    }
+
+    /**
+     * Failures are counted within processed rather than beside it. A sweep that reached every target and found
+     * nothing listening is a complete run, not a degraded one, and must not read as stuck at less than 100 per cent.
+     */
+    @Test
+    void anAllFailedSweepStillReachesEveryTarget() {
+        UUID runId = UUID.randomUUID();
+        DiscoveryRunService failing = new DiscoveryRunService(registry, budget, attributeService(), url -> {
+            throw new IOException("nothing listening");
+        });
+        failing.initiate(initiateRequest(runId, "10.0.0.1-10.0.0.4"));
+        awaitCompletion(runId);
+
+        var progress = failing.status(runRequest(runId)).getProgress();
+
+        Assertions.assertEquals(progress.getTargetsTotal(), progress.getTargetsProcessed(), "the sweep is complete");
+        Assertions.assertEquals(4L, progress.getTargetsFailed());
+        Assertions.assertNull(progress.getByResource(), "a run that found nothing reports no per-resource yield");
+        Assertions
+                .assertEquals(DiscoveryRunState.COMPLETED, registry.state(runId).orElseThrow(),
+                        "failing to reach a target does not degrade the run");
+    }
+
+    /**
+     * Core keeps the last progress it was given and cannot tell an empty report from a missing one, so an all-null
+     * object would overwrite a real measurement with silence.
+     */
+    @Test
+    void omitsProgressEntirelyWhenThereIsNothingToReport() {
+        UUID runId = UUID.randomUUID();
+        registry.register(runId, RunHandle.initial("digest"));
+
+        Assertions.assertNull(service.status(runRequest(runId)).getProgress());
+    }
+
+    /** A run parked on the buffer is diagnosable from Core; a healthy one carries no phase to keep. */
+    @Test
+    void namesThePhaseOnlyWhenItExplainsAStalledRun() {
+        UUID runId = UUID.randomUUID();
+        service.initiate(initiateRequest(runId, "10.0.0.1-10.0.0.4"));
+        awaitCompletion(runId);
+
+        Assertions.assertNull(service.status(runRequest(runId)).getProgress().getPhase());
     }
 }
