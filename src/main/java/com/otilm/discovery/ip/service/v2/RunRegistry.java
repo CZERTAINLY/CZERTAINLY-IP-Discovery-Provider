@@ -43,6 +43,7 @@ public class RunRegistry {
     private static final class Entry {
         private final AtomicReference<RunHandle> handle;
         private final AtomicReference<ScanRunner> runner = new AtomicReference<>();
+        private final AtomicReference<ResultBuffer> buffer = new AtomicReference<>();
         private final AtomicLong lastDriven;
 
         private Entry(RunHandle handle, long now) {
@@ -58,11 +59,16 @@ public class RunRegistry {
         return runs.putIfAbsent(runId, new Entry(handle, ticker.getAsLong())) == null;
     }
 
-    /** Gives the registry the means to stop a run it later has to abandon. */
-    public void attach(UUID runId, ScanRunner runner) {
+    /**
+     * Gives the registry the means to release a run it later has to abandon: the scan to stop, and the buffer whose
+     * budget has to go back. Without the buffer the run's slot and bytes stay charged after it is gone, and the node
+     * refuses new runs long after it has any.
+     */
+    public void attach(UUID runId, ScanRunner runner, ResultBuffer buffer) {
         Entry entry = runs.get(runId);
         if (entry != null) {
             entry.runner.set(runner);
+            entry.buffer.set(buffer);
         }
     }
 
@@ -106,13 +112,39 @@ public class RunRegistry {
     }
 
     /**
-     * Drops every run the platform has stopped driving for longer than {@code idleFor}, stopping its scan first.
+     * Drops a run and hands back everything it held. Used by both the deadline and a cancel: a run that is gone must
+     * leave nothing charged behind it.
+     */
+    public boolean release(UUID runId) {
+        Entry entry = runs.remove(runId);
+        if (entry == null) {
+            return false;
+        }
+        release(entry);
+        return true;
+    }
+
+    private static void release(Entry entry) {
+        ScanRunner runner = entry.runner.get();
+        if (runner != null) {
+            runner.stop();
+        }
+        ResultBuffer buffer = entry.buffer.get();
+        if (buffer != null) {
+            // Undrained items go with it. A resume detects that as loss against Core's live cursor and refuses,
+            // which is the honest answer -- re-serving from a rebuilt run would leave a hole Core cannot see.
+            buffer.close();
+        }
+    }
+
+    /**
+     * Drops every run the platform has stopped driving for longer than {@code idleFor}, releasing what it held.
      *
      * <p>
      * Core is not guaranteed to clean up after itself: a start that fails after initiate succeeded calls cancel
      * best-effort and logs that the scan may keep running until the connector's own timeout. This is that timeout.
      *
-     * @return the runs abandoned, for the caller to log and release
+     * @return the runs abandoned, for the caller to log
      */
     public List<UUID> abandonIdle(Duration idleFor) {
         long cutoff = ticker.getAsLong() - idleFor.toNanos();
@@ -124,10 +156,7 @@ public class RunRegistry {
             // Remove first: a lifecycle call arriving now finds nothing and is answered as a forgotten run, which is
             // the contract's expected answer, rather than reaching a scan that is being torn down underneath it.
             if (runs.remove(run.getKey(), run.getValue())) {
-                ScanRunner runner = run.getValue().runner.get();
-                if (runner != null) {
-                    runner.stop();
-                }
+                release(run.getValue());
                 abandoned.add(run.getKey());
                 logger
                         .warn("Run {} abandoned after {} without a lifecycle call from the platform", run.getKey(),

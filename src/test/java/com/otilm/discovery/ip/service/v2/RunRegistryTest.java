@@ -157,7 +157,7 @@ class RunRegistryTest {
         registry.register(runId, handle(0));
         ScanRunner runner = new ScanRunner(runId, com.otilm.discovery.ip.util.TargetEnumeration
                 .of("10.0.0.1", "443", false), null, registry, null, 1);
-        registry.attach(runId, runner);
+        registry.attach(runId, runner, null);
 
         ticker.advance(Duration.ofHours(1));
         registry.abandonIdle(Duration.ofMinutes(30));
@@ -174,5 +174,26 @@ class RunRegistryTest {
         ticker.advance(Duration.ofMinutes(29));
 
         Assertions.assertEquals(List.of(), registry.abandonIdle(Duration.ofMinutes(30)));
+    }
+
+    /**
+     * Abandoning has to hand the buffer's budget back. Without it the node keeps charging a run that no longer
+     * exists, and refuses new ones long after it holds any.
+     */
+    @Test
+    void handsBackTheBudgetOfAnAbandonedRun() {
+        Ticker ticker = new Ticker();
+        RunRegistry registry = new RunRegistry(ticker);
+        BufferBudget budget = new BufferBudget(1, 100, 1L << 30, 1L << 31, 30_000);
+        UUID runId = UUID.randomUUID();
+        registry.register(runId, handle(0));
+        Assertions.assertTrue(budget.open(runId));
+        registry.attach(runId, null, new ResultBuffer(runId, budget, 0));
+
+        ticker.advance(Duration.ofHours(1));
+        registry.abandonIdle(Duration.ofMinutes(30));
+
+        Assertions.assertEquals(0, budget.openRuns());
+        Assertions.assertTrue(budget.open(UUID.randomUUID()), "the slot must be free for the next run");
     }
 }
