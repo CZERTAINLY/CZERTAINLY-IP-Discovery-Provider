@@ -92,12 +92,18 @@ class InfoControllerImplTest {
     }
 
     /**
-     * Both flags describe behaviour the connector does not have yet: stop and resume wait on a run engine that can
-     * honour a stop, and streaming has no client in Core. Advertising either is a contract claim, so this fails if one
-     * is added before the behaviour is.
+     * Stop and resume are advertised because a stopped run survives the connector restarting: the scan is
+     * interruptible, the checkpoint travels in the run's meta, and a run this node no longer holds is rebuilt from
+     * it. Streaming is not, and must not be — Core has no stream client, so the flag would promise a path nothing
+     * uses and the endpoint answers as unsupported.
      */
     @Test
-    void advertisesNoDiscoveryFeatureFlags() {
-        Assertions.assertNull(declarationOf(ConnectorInterface.DISCOVERY).getFeatures());
+    void advertisesStopAndResumeButNotStreaming() {
+        List<FeatureFlag> features = declarationOf(ConnectorInterface.DISCOVERY).getFeatures();
+
+        Assertions.assertEquals(List.of(FeatureFlag.DISCOVERY_STOP_RESUME), features);
+        Assertions
+                .assertFalse(features.contains(FeatureFlag.DISCOVERY_STREAMING),
+                        "streaming is unimplemented, so advertising it would be a false claim");
     }
 }

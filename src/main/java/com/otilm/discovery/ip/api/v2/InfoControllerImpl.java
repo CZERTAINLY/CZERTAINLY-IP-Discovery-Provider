@@ -41,11 +41,22 @@ public class InfoControllerImpl implements InfoController {
         InfoResponse response = new InfoResponse();
         response.setConnector(connector);
         response.setInterfaces(List.of(declare(ConnectorInterface.INFO), declare(ConnectorInterface.HEALTH), metrics(),
-                // No feature flags yet. discoveryStopResume waits on the run engine that can honour a stop, and
-                // discoveryStreaming stays unadvertised: Core has no stream client, so the flag would promise a
-                // path nothing uses. Declaring either before it works is a contract violation, not an intention.
-                declare(ConnectorInterface.DISCOVERY)));
+                discovery()));
         return response;
+    }
+
+    /**
+     * Stop and resume are advertised now that a stopped run can be resumed after the connector restarts: the scan is
+     * interruptible, the checkpoint travels in the run's meta, and a run this node no longer holds is rebuilt from it.
+     *
+     * <p>
+     * Streaming stays unadvertised. Core has no stream client, so the flag would promise a path nothing uses, and the
+     * endpoint answers as unsupported.
+     */
+    private static ConnectorInterfaceInfo discovery() {
+        ConnectorInterfaceInfo info = declare(ConnectorInterface.DISCOVERY);
+        info.setFeatures(List.of(FeatureFlag.DISCOVERY_STOP_RESUME));
+        return info;
     }
 
     private static ConnectorInterfaceInfo declare(ConnectorInterface code) {

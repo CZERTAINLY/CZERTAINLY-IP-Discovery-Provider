@@ -6,6 +6,7 @@ import com.otilm.api.model.common.error.ErrorCode;
 import com.otilm.api.model.common.error.ProblemDetailExtended;
 import com.otilm.discovery.ip.api.v2.AttributeCallbackNotSupportedException;
 import com.otilm.discovery.ip.api.v2.AttributeDefinitionNotFoundException;
+import com.otilm.discovery.ip.api.v2.CheckpointLostException;
 import com.otilm.discovery.ip.api.v2.NodeAtCapacityException;
 import com.otilm.discovery.ip.api.v2.UnknownRunException;
 import com.otilm.discovery.ip.service.v2.BufferBudget;
@@ -107,6 +108,17 @@ public class ProblemDetailsHandlingAdvice extends ResponseEntityExceptionHandler
     public ProblemDetail handleUnknownRun(UnknownRunException ex) {
         LOG.info("Run not tracked: {}", ex.getMessage());
         return ProblemDetailExtended.fromErrorCode(ErrorCode.OPERATION_NOT_TRACKED, ex.getMessage(), null, null);
+    }
+
+    /**
+     * 410 rather than 404: the run is recognised, and it is the checkpoint that cannot be continued. Core reads the
+     * two differently, and collapsing them would turn an upgrade that reordered the enumeration into a run that never
+     * existed.
+     */
+    @ExceptionHandler(CheckpointLostException.class)
+    public ProblemDetail handleCheckpointLost(CheckpointLostException ex) {
+        LOG.warn("Checkpoint refused: {}", ex.getMessage());
+        return ProblemDetailExtended.fromErrorCode(ErrorCode.CHECKPOINT_LOST, ex.getMessage(), null, null);
     }
 
     /** Retryable on purpose: another node may have room, and this one will once a run finishes. */

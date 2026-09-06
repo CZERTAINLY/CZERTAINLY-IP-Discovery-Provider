@@ -9,7 +9,9 @@ import com.otilm.api.model.connector.discovery.v2.DiscoveryRunRequestDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryRunState;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryStatusResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryStopResponseDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryV2ScopedRequestDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.discovery.ip.api.v2.CheckpointLostException;
 import com.otilm.discovery.ip.api.v2.NodeAtCapacityException;
 import com.otilm.discovery.ip.api.v2.UnknownRunException;
 import com.otilm.discovery.ip.service.ConnectionService;
@@ -90,9 +92,16 @@ public class DiscoveryRunService {
         return accepted(handle);
     }
 
+    /**
+     * Rebuilds unconditionally when this node does not hold the run. Status hands nothing over, so it cannot lose
+     * anything — and refusing it is what kills the run: Core keeps polling a stopped run, and the first 404 ends it
+     * FAILED before anyone can press resume.
+     */
     public DiscoveryStatusResponseDto status(DiscoveryRunRequestDto request) {
         UUID runId = request.getRunId();
-        registry.find(runId).orElseThrow(() -> new UnknownRunException(runId));
+        if (registry.find(runId).isEmpty()) {
+            rebuild(request);
+        }
         registry.touch(runId);
 
         DiscoveryStatusResponseDto response = new DiscoveryStatusResponseDto();
@@ -112,7 +121,9 @@ public class DiscoveryRunService {
      */
     public DiscoveryResultsResponseDto results(DiscoveryDrainRequestDto request) {
         UUID runId = request.getRunId();
-        registry.find(runId).orElseThrow(() -> new UnknownRunException(runId));
+        if (registry.find(runId).isEmpty()) {
+            rebuildForDrain(request);
+        }
         registry.touch(runId);
         ResultBuffer buffer = registry.buffer(runId).orElseThrow(() -> new UnknownRunException(runId));
 
@@ -154,7 +165,9 @@ public class DiscoveryRunService {
      */
     public DiscoveryInitiateResponseDto resume(DiscoveryRunRequestDto request) {
         UUID runId = request.getRunId();
-        RunHandle handle = registry.find(runId).orElseThrow(() -> new UnknownRunException(runId));
+        // Accepted optimistically: resume carries no cursor, so the verdict on whether anything was lost comes from
+        // the first drain, which arrives within seconds because Core expedites the drain row on a successful resume.
+        RunHandle handle = registry.find(runId).orElseGet(() -> rebuild(request));
         registry.touch(runId);
 
         if (registry.state(runId).orElse(DiscoveryRunState.RUNNING) == DiscoveryRunState.RUNNING) {
@@ -164,6 +177,7 @@ public class DiscoveryRunService {
 
         requireSupported(request.getResources());
         TargetEnumeration targets = enumerate(request);
+        requireSameEnumeration(runId, handle, targets);
         int parallelism = attributes.readParallelExecutions(request.getAttributes());
 
         RunHandle running = registry
@@ -181,6 +195,75 @@ public class DiscoveryRunService {
             throw new UnknownRunException(runId);
         }
         logger.info("Run {} cancelled and forgotten", runId);
+    }
+
+    /**
+     * Reconstructs a run this node does not hold, from the checkpoint Core replayed.
+     *
+     * <p>
+     * Only a handle that says {@code stopped} may be rebuilt. A {@code running} one describes a run whose in-flight
+     * state is genuinely gone, and rebuilding on it is silent loss: an initiate-time handle reads cursor 0 and high
+     * water 0, indistinguishable from a stopped run checkpointed before it scanned anything, so the rebuilt run
+     * renumbers from 1 while Core's cursor sits at N and every re-emitted item is discarded without an error
+     * anywhere.
+     */
+    private RunHandle rebuild(DiscoveryV2ScopedRequestDto request) {
+        UUID runId = request.getRunId();
+        RunHandle handle = RunHandle.from(request.getMeta()).orElseThrow(() -> new UnknownRunException(runId));
+        if (handle.state() != RunHandle.RunState.STOPPED) {
+            throw new UnknownRunException(runId);
+        }
+
+        requireSupported(request.getResources());
+        if (!budget.open(runId)) {
+            throw new NodeAtCapacityException("this node is already scanning as many runs as it can feed");
+        }
+        if (!registry.register(runId, handle)) {
+            budget.close(runId);
+            return registry.find(runId).orElseThrow(() -> new UnknownRunException(runId));
+        }
+        registry.setState(runId, DiscoveryRunState.STOPPED);
+        // A rebuilt run holds no items: whatever it had was in memory this node no longer has. The buffer exists so
+        // a resume numbers from where the checkpoint left off rather than from one.
+        registry.attach(runId, null, new ResultBuffer(runId, budget, handle.sequenceHighWater()));
+        logger.info("Rebuilt stopped run {} from its replayed checkpoint at cursor {}", runId, handle.cursorIndex());
+        return handle;
+    }
+
+    /**
+     * A drain for a run this node lost may only be served when Core's cursor proves nothing is missing.
+     *
+     * <p>
+     * {@code afterSequence} is Core's live cursor. Equal to the checkpoint's high water means Core already holds
+     * everything the run produced, so the rebuilt run can serve — an empty page, then whatever a resume produces.
+     * Below it means items were produced and never handed over, and they cannot be regenerated. Above it means the
+     * handle is stale, left behind by a resume Core failed to record.
+     *
+     * <p>
+     * Both of those answer 404 rather than serving. Core advances its cursor to the highest sequence in a page, not
+     * to the end of a contiguous run, so serving across a hole would let the run finish clean with items missing.
+     */
+    private void rebuildForDrain(DiscoveryDrainRequestDto request) {
+        UUID runId = request.getRunId();
+        RunHandle handle = RunHandle.from(request.getMeta()).orElseThrow(() -> new UnknownRunException(runId));
+        if (request.getAfterSequence() != handle.sequenceHighWater()) {
+            logger
+                    .warn("Refusing to serve rebuilt run {}: Core is at sequence {} and the checkpoint at {}", runId,
+                            request.getAfterSequence(), handle.sequenceHighWater());
+            throw new UnknownRunException(runId);
+        }
+        rebuild(request);
+    }
+
+    /**
+     * The checkpoint indexes into an enumeration, so it can only be continued against the same one. ND3's guard:
+     * any change to enumeration order invalidates the cursor, and the run is refused loudly rather than resumed at
+     * the wrong offset.
+     */
+    private static void requireSameEnumeration(UUID runId, RunHandle handle, TargetEnumeration targets) {
+        if (!targets.digest().equals(handle.targetsDigest())) {
+            throw new CheckpointLostException(runId, "the scan's target enumeration has changed");
+        }
     }
 
     private void start(UUID runId, TargetEnumeration targets, RunHandle handle, int parallelism) {
