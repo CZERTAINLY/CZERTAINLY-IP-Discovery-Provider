@@ -88,7 +88,7 @@ public class DiscoveryRunService {
             return accepted(registry.find(runId).orElseThrow(() -> new UnknownRunException(runId)));
         }
 
-        start(runId, targets, handle, parallelism);
+        start(runId, targets, handle, parallelism, request.getResources());
         return accepted(handle);
     }
 
@@ -184,7 +184,7 @@ public class DiscoveryRunService {
                 .update(runId, current -> current.withState(RunHandle.RunState.RUNNING))
                 .orElseThrow(() -> new UnknownRunException(runId));
         registry.setState(runId, DiscoveryRunState.RUNNING);
-        start(runId, targets, running, parallelism);
+        start(runId, targets, running, parallelism, request.getResources());
         return accepted(running);
     }
 
@@ -266,9 +266,11 @@ public class DiscoveryRunService {
         }
     }
 
-    private void start(UUID runId, TargetEnumeration targets, RunHandle handle, int parallelism) {
+    private void start(UUID runId, TargetEnumeration targets, RunHandle handle, int parallelism,
+            List<Resource> resources) {
         ResultBuffer buffer = new ResultBuffer(runId, budget, handle.sequenceHighWater());
-        ScanRunner runner = new ScanRunner(runId, targets, buffer, registry, connectionService, parallelism);
+        ScanRunner runner = new ScanRunner(runId, targets, buffer, registry, connectionService, parallelism,
+                EnumSet.copyOf(resources));
         registry.attach(runId, runner, buffer);
         scans.submit(() -> {
             try {

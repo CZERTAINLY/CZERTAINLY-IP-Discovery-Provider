@@ -2,9 +2,11 @@ package com.otilm.discovery.ip.service.v2;
 
 import com.otilm.api.model.connector.discovery.v2.DiscoveredCertificateDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveredItemDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveredKeyDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.discovery.ip.dto.ConnectionResponse;
 import com.otilm.discovery.ip.service.ConnectionService;
+import com.otilm.discovery.ip.util.KeyMapper;
 import com.otilm.discovery.ip.util.TargetEnumeration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +22,7 @@ import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -55,17 +58,19 @@ public class ScanRunner {
     private final ConnectionService connectionService;
     private final int parallelism;
     private final int chunkSize;
+    private final Set<Resource> resources;
 
     private final AtomicBoolean stopping = new AtomicBoolean();
     private final List<Future<?>> inFlight = new ArrayList<>();
 
     public ScanRunner(UUID runId, TargetEnumeration targets, ResultBuffer buffer, RunRegistry registry,
-            ConnectionService connectionService, int parallelism) {
-        this(runId, targets, buffer, registry, connectionService, parallelism, CHUNK_SIZE);
+            ConnectionService connectionService, int parallelism, Set<Resource> resources) {
+        this(runId, targets, buffer, registry, connectionService, parallelism, CHUNK_SIZE, resources);
     }
 
     ScanRunner(UUID runId, TargetEnumeration targets, ResultBuffer buffer, RunRegistry registry,
-            ConnectionService connectionService, int parallelism, int chunkSize) {
+            ConnectionService connectionService, int parallelism, int chunkSize, Set<Resource> resources) {
+        this.resources = resources;
         this.runId = runId;
         this.targets = targets;
         this.buffer = buffer;
@@ -169,8 +174,17 @@ public class ScanRunner {
         try {
             ConnectionResponse response = connectionService.getCertificates(url);
             for (X509Certificate certificate : response.getCertificates()) {
-                buffer.add(certificateItem(certificate), weightOf(certificate));
-                tally.yield.computeIfAbsent(Resource.CERTIFICATE.getCode(), key -> new AtomicLong()).incrementAndGet();
+                byte[] der = certificate.getEncoded();
+                if (resources.contains(Resource.CERTIFICATE)) {
+                    buffer.add(certificateItem(der), weightOf(der.length));
+                    counted(tally, Resource.CERTIFICATE);
+                }
+                // Driven by the run's resource set rather than always on: a key per certificate roughly doubles item
+                // count, sequence consumption and buffer occupancy.
+                if (resources.contains(Resource.CRYPTOGRAPHIC_KEY)) {
+                    buffer.add(keyItem(certificate), KEY_ITEM_WEIGHT);
+                    counted(tally, Resource.CRYPTOGRAPHIC_KEY);
+                }
             }
             tally.processed.incrementAndGet();
         } catch (InterruptedException e) {
@@ -201,10 +215,11 @@ public class ScanRunner {
                 });
     }
 
-    private static DiscoveredItemDto certificateItem(X509Certificate certificate) throws CertificateEncodingException,
-            NoSuchAlgorithmException {
-        byte[] der = certificate.getEncoded();
+    private static void counted(ChunkTally tally, Resource resource) {
+        tally.yield.computeIfAbsent(resource.getCode(), key -> new AtomicLong()).incrementAndGet();
+    }
 
+    private static DiscoveredItemDto certificateItem(byte[] der) throws NoSuchAlgorithmException {
         DiscoveredCertificateDto payload = new DiscoveredCertificateDto();
         payload.setCertificateData(Base64.getEncoder().encodeToString(der));
 
@@ -216,11 +231,29 @@ public class ScanRunner {
     }
 
     /**
-     * The buffer takes the weight rather than measuring it, and this is the caller that owes it a truthful number.
-     * The DER dominates: base64 inflates it by a third, and the rest of the item is a digest, a timestamp and an enum.
+     * The key a certificate already carries. Its uniqueRef is the fingerprint, which is what the platform correlates
+     * staged keys on, so the same key seen on two hosts collapses to one item rather than two.
      */
-    private static long weightOf(X509Certificate certificate) throws CertificateEncodingException {
-        return (certificate.getEncoded().length * 4L / 3) + 512;
+    private static DiscoveredItemDto keyItem(X509Certificate certificate) throws NoSuchAlgorithmException {
+        DiscoveredKeyDto payload = KeyMapper.toKey(certificate);
+
+        DiscoveredItemDto item = new DiscoveredItemDto();
+        item.setUniqueRef(payload.getFingerprint());
+        item.setPayload(payload);
+        item.setDiscoveredAt(OffsetDateTime.now());
+        return item;
+    }
+
+    /** An SPKI, a hex fingerprint and four small fields; the largest realistic SPKI is an RSA-4096 at ~800 bytes. */
+    private static final long KEY_ITEM_WEIGHT = 1_536;
+
+    /**
+     * The buffer takes the weight rather than measuring it, and this is the caller that owes it a truthful number.
+     * The DER dominates a certificate item: base64 inflates it by a third, and the rest is a digest, a timestamp and
+     * an enum.
+     */
+    private static long weightOf(int derLength) {
+        return (derLength * 4L / 3) + 512;
     }
 
     private static final class ChunkTally {

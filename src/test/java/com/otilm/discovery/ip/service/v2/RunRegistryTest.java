@@ -156,7 +156,8 @@ class RunRegistryTest {
         UUID runId = UUID.randomUUID();
         registry.register(runId, handle(0));
         ScanRunner runner = new ScanRunner(runId, com.otilm.discovery.ip.util.TargetEnumeration
-                .of("10.0.0.1", "443", false), null, registry, null, 1);
+                .of("10.0.0.1", "443", false), null, registry, null, 1,
+                java.util.Set.of(com.otilm.api.model.core.auth.Resource.CERTIFICATE));
         registry.attach(runId, runner, null);
 
         ticker.advance(Duration.ofHours(1));

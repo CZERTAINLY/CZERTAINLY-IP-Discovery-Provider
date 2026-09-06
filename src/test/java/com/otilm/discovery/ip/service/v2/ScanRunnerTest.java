@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -96,7 +97,12 @@ class ScanRunnerTest {
 
     private ScanRunner runner(UUID runId, TargetEnumeration targets, ResultBuffer buffer, ConnectionService probes,
             int chunkSize) {
-        return new ScanRunner(runId, targets, buffer, registry, probes, 8, chunkSize);
+        return runner(runId, targets, buffer, probes, chunkSize, Set.of(Resource.CERTIFICATE));
+    }
+
+    private ScanRunner runner(UUID runId, TargetEnumeration targets, ResultBuffer buffer, ConnectionService probes,
+            int chunkSize, Set<Resource> resources) {
+        return new ScanRunner(runId, targets, buffer, registry, probes, 8, chunkSize, resources);
     }
 
     private ResultBuffer openBuffer(UUID runId, BufferBudget budget, long startingSequence) {
@@ -230,5 +236,63 @@ class ScanRunnerTest {
         Assertions.assertTrue(runner(runId, targets, buffer, probes, 4).scan());
 
         Assertions.assertEquals(0, probes.probed.get());
+    }
+
+    // --- keys ---
+
+    /**
+     * The keys are the certificates' own, derived from a chain the scan already has. Emitting them is driven by the
+     * run's resource set because a key per certificate roughly doubles item count and buffer occupancy.
+     */
+    @Test
+    void emitsAKeyBesideEachCertificateWhenTheRunAsksForBoth() throws Exception {
+        UUID runId = UUID.randomUUID();
+        TargetEnumeration targets = TargetEnumeration.of("10.0.0.1-10.0.0.4", "443", false);
+        registry.register(runId, RunHandle.initial(targets.digest()));
+        ResultBuffer buffer = openBuffer(runId, roomyBudget(), 0);
+
+        runner(runId, targets, buffer, new AlwaysAnswers(), 4,
+                Set.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY)).scan();
+
+        RunHandle handle = registry.find(runId).orElseThrow();
+        Assertions
+                .assertEquals(Map.of(Resource.CERTIFICATE.getCode(), 4L, Resource.CRYPTOGRAPHIC_KEY.getCode(), 4L),
+                        handle.yieldByResource());
+        Assertions.assertEquals(8, buffer.held(), "one certificate item and one key item per target");
+    }
+
+    /** A run that did not ask for keys must not be charged for them, in items, sequences or buffer. */
+    @Test
+    void emitsNoKeyItemsForACertificatesOnlyRun() throws Exception {
+        UUID runId = UUID.randomUUID();
+        TargetEnumeration targets = TargetEnumeration.of("10.0.0.1-10.0.0.4", "443", false);
+        registry.register(runId, RunHandle.initial(targets.digest()));
+        ResultBuffer buffer = openBuffer(runId, roomyBudget(), 0);
+
+        runner(runId, targets, buffer, new AlwaysAnswers(), 4, Set.of(Resource.CERTIFICATE)).scan();
+
+        Assertions
+                .assertEquals(Map.of(Resource.CERTIFICATE.getCode(), 4L),
+                        registry.find(runId).orElseThrow().yieldByResource());
+        Assertions.assertEquals(4, buffer.held());
+    }
+
+    /** A keys-only run is satisfiable: it returns the public keys of the certificates it would otherwise have got. */
+    @Test
+    void emitsOnlyKeysForAKeysOnlyRun() throws Exception {
+        UUID runId = UUID.randomUUID();
+        TargetEnumeration targets = TargetEnumeration.of("10.0.0.1-10.0.0.4", "443", false);
+        registry.register(runId, RunHandle.initial(targets.digest()));
+        ResultBuffer buffer = openBuffer(runId, roomyBudget(), 0);
+
+        runner(runId, targets, buffer, new AlwaysAnswers(), 4, Set.of(Resource.CRYPTOGRAPHIC_KEY)).scan();
+
+        Assertions
+                .assertEquals(Map.of(Resource.CRYPTOGRAPHIC_KEY.getCode(), 4L),
+                        registry.find(runId).orElseThrow().yieldByResource());
+        Assertions
+                .assertEquals(com.otilm.discovery.ip.util.KeyMapper.toKey(certificate).getFingerprint(),
+                        buffer.page(0, 10, 1L << 20).items().get(0).getUniqueRef(),
+                        "a key item is correlated by its fingerprint");
     }
 }
