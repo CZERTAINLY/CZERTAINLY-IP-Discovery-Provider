@@ -1,5 +1,6 @@
 package com.otilm.discovery.ip.service.v2;
 
+import com.otilm.api.model.connector.discovery.v2.DiscoveryRunState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -44,6 +45,7 @@ public class RunRegistry {
         private final AtomicReference<RunHandle> handle;
         private final AtomicReference<ScanRunner> runner = new AtomicReference<>();
         private final AtomicReference<ResultBuffer> buffer = new AtomicReference<>();
+        private final AtomicReference<DiscoveryRunState> state = new AtomicReference<>(DiscoveryRunState.RUNNING);
         private final AtomicLong lastDriven;
 
         private Entry(RunHandle handle, long now) {
@@ -82,6 +84,32 @@ public class RunRegistry {
         if (entry != null) {
             entry.lastDriven.set(ticker.getAsLong());
         }
+    }
+
+    /**
+     * The run's state as Core asks for it. Distinct from the handle's own marker, which carries only what a rebuild
+     * needs: whether a checkpoint was written while stopped, or by a run still in flight.
+     */
+    public Optional<DiscoveryRunState> state(UUID runId) {
+        Entry entry = runs.get(runId);
+        return entry == null ? Optional.empty() : Optional.of(entry.state.get());
+    }
+
+    public void setState(UUID runId, DiscoveryRunState state) {
+        Entry entry = runs.get(runId);
+        if (entry != null) {
+            entry.state.set(state);
+        }
+    }
+
+    public Optional<ResultBuffer> buffer(UUID runId) {
+        Entry entry = runs.get(runId);
+        return entry == null ? Optional.empty() : Optional.ofNullable(entry.buffer.get());
+    }
+
+    public Optional<ScanRunner> runner(UUID runId) {
+        Entry entry = runs.get(runId);
+        return entry == null ? Optional.empty() : Optional.ofNullable(entry.runner.get());
     }
 
     public Optional<RunHandle> find(UUID runId) {
